@@ -8,6 +8,7 @@ import type { AppSettings, ProjectInfo } from "@shared/types";
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: "dark",
+  locale: "en",
   fontSize: 13,
   accent: "#4f8cff",
   sandboxMode: "none",
@@ -61,10 +62,15 @@ export class AppState {
   }
 
   getRecentProjects(): ProjectInfo[] {
-    return this.state.recentProjects;
+    // Only return projects that still exist on disk and are not scratch dirs.
+    return this.state.recentProjects.filter(
+      (p) => existsSync(p.path) && !isScratchPath(p.path),
+    );
   }
 
   addProject(project: ProjectInfo): void {
+    // Never remember scratch/temp directories (tests, capture driver, etc.).
+    if (isScratchPath(project.path)) return;
     this.state.recentProjects = [
       project,
       ...this.state.recentProjects.filter((p) => p.path !== project.path),
@@ -101,4 +107,18 @@ export function projectIdForPath(path: string): string {
 
 export function isGitRepo(path: string): boolean {
   return existsSync(join(path, ".git"));
+}
+
+/** Scratch/temp dirs that should never be remembered as recent projects. */
+function isScratchPath(path: string): boolean {
+  const p = path.toLowerCase();
+  return (
+    p.includes("/tmp/") ||
+    p.includes("/var/folders/") ||
+    p.includes("lattice-shot-") ||
+    p.includes("lattice-e2e-") ||
+    p.includes("lattice-it-") ||
+    p.includes("lattice-smoke-") ||
+    p.includes("lattice-par-")
+  );
 }

@@ -180,8 +180,26 @@ export class PiRuntimeAdapter implements RuntimeAdapter {
   }
 
   async getModels(providerId?: string): Promise<ModelInfo[]> {
-    const models = await this.modelRuntime.getAvailable(providerId);
-    return models.map(toModelInfo);
+    // Return every model from every provider (not just authenticated ones), so
+    // users can see and configure models even before adding a key. `available`
+    // marks which ones are currently usable.
+    const available = await this.modelRuntime.getAvailable(providerId);
+    const availableIds = new Set(available.map((m) => `${m.provider}/${m.id}`));
+
+    const out: ModelInfo[] = [];
+    for (const p of this.modelRuntime.getProviders()) {
+      if (providerId && p.id !== providerId) continue;
+      for (const m of p.getModels()) {
+        out.push({ ...toModelInfo(m), available: availableIds.has(`${m.provider}/${m.id}`) });
+      }
+    }
+    out.sort(
+      (a, b) =>
+        Number(!!b.available) - Number(!!a.available) ||
+        a.provider.localeCompare(b.provider) ||
+        a.name.localeCompare(b.name),
+    );
+    return out;
   }
 
   async setApiKey(providerId: string, apiKey: string): Promise<void> {

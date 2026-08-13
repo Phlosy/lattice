@@ -23,6 +23,7 @@ const api: LatticeApi = {
   // project
   openProject: (path?: string) => invoke(IPC.OpenProject, path),
   getProjects: () => invoke(IPC.GetProjects),
+  removeProject: (path: string) => invoke(IPC.RemoveProject, path),
 
   // session
   getSessions: (cwd: string) => invoke(IPC.GetSessions, cwd),

@@ -168,6 +168,8 @@ export interface ModelInfo {
   contextWindow: number;
   maxTokens: number;
   input: string[];
+  /** Whether the provider has valid auth configured (key/OAuth available). */
+  available?: boolean;
 }
 
 export interface ProviderInfo {
@@ -293,6 +295,7 @@ export interface InstalledPackage {
 // ---------------------------------------------------------------------------
 export interface AppSettings {
   theme: "dark" | "light";
+  locale: "en" | "zh";
   fontSize: number;
   accent: string;
   sandboxMode: "none" | "docker";
@@ -306,6 +309,7 @@ export const IPC = {
   // project / session
   OpenProject: "project:open",
   GetProjects: "project:list",
+  RemoveProject: "project:remove",
   GetSessions: "session:list",
   CreateSession: "session:create",
   RenameSession: "session:rename",

@@ -48,6 +48,10 @@ export function registerIpc(ctx: IpcContext): void {
   });
 
   ipcMain.handle(IPC.GetProjects, () => ctx.workspace.getRecentProjects());
+  ipcMain.handle(IPC.RemoveProject, (_e, path: string) => {
+    ctx.appState.removeProject(path);
+    return true;
+  });
 
   // --- session ---
   ipcMain.handle(IPC.GetSessions, (_e, cwd: string) => ctx.workspace.listSessions(cwd));

@@ -25,6 +25,7 @@ export interface LatticeApi {
 
   openProject(path?: string): Promise<ProjectInfo | null>;
   getProjects(): Promise<ProjectInfo[]>;
+  removeProject(path: string): Promise<boolean>;
 
   getSessions(cwd: string): Promise<SessionMeta[]>;
   createSession(opts: { projectId: string; cwd: string; name?: string }): Promise<{
