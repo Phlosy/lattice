@@ -39,8 +39,11 @@ jobs:
       - name: Install npm deps
         run: npm ci --ignore-scripts
 
-      # The Tauri build script requires bundle.resources ("pi-sidecar") to
-      # exist, so build the sidecar before any cargo command.
+      # Tauri's generate_context! macro requires both frontendDist ("../dist")
+      # and bundle.resources ("pi-sidecar") to exist at compile time.
+      - name: Frontend build
+        run: npm run build:ui
+
       - name: Build Pi sidecar
         run: bash scripts/build-pi-sidecar.sh
 
@@ -61,9 +64,6 @@ jobs:
       - name: Rust tests
         working-directory: poc/tauri-app/src-tauri
         run: cargo test --release
-
-      - name: Frontend build
-        run: npm run build:ui
 
       - name: Rust release build
         working-directory: poc/tauri-app/src-tauri
