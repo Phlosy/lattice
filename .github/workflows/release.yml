@@ -86,8 +86,14 @@ jobs:
           bash scripts/build-pi-sidecar.sh "${{ matrix.platform }}" > /tmp/sidecar.out 2>&1
           RC=$?
           cat /tmp/sidecar.out
+          {
+            echo "## Build Pi sidecar (exit $RC)"
+            echo '```'
+            tail -60 /tmp/sidecar.out
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
           if [ $RC -ne 0 ]; then
-            echo "::error::build-pi-sidecar failed: $(tail -40 /tmp/sidecar.out | tr '\n' ' | ' | head -c 50000)"
+            echo "::error::build-pi-sidecar failed (exit $RC)"
           fi
           exit $RC
 
