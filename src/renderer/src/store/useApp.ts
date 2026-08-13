@@ -34,6 +34,7 @@ interface AppStore {
   currentProject: ProjectInfo | null;
   sessions: SessionMeta[];
   activeSessionId: string | null;
+  openSessionIds: string[];
   sessionState: SessionState | null;
   transcript: TranscriptState;
   providers: ProviderInfo[];
@@ -53,6 +54,7 @@ interface AppStore {
   createSession: (name?: string) => Promise<void>;
   openSession: (file: string) => Promise<void>;
   setActiveSession: (sessionId: string) => Promise<void>;
+  closeSessionTab: (sessionId: string) => Promise<void>;
   renameSession: (sessionId: string, name: string) => Promise<void>;
   deleteSession: (file: string) => Promise<void>;
 
@@ -90,6 +92,7 @@ export const useApp = create<AppStore>((set, get) => ({
   currentProject: null,
   sessions: [],
   activeSessionId: null,
+  openSessionIds: [],
   sessionState: null,
   transcript: { ...initialTranscript },
   providers: [],
@@ -160,7 +163,7 @@ export const useApp = create<AppStore>((set, get) => ({
   openProject: async (path) => {
     const project = await api().openProject(path);
     if (!project) return;
-    set({ currentProject: project, view: "chat", activeSessionId: null, transcript: { ...initialTranscript } });
+    set({ currentProject: project, view: "chat", activeSessionId: null, openSessionIds: [], transcript: { ...initialTranscript } });
     await get().refreshSessions();
     await get().refreshGit();
   },
@@ -187,6 +190,7 @@ export const useApp = create<AppStore>((set, get) => ({
     })) as { sessionId: string; state: SessionState };
     await get().refreshSessions();
     await get().setActiveSession(result.sessionId);
+    set({ openSessionIds: [...new Set([...get().openSessionIds, result.sessionId])] });
   },
 
   openSession: async (file) => {
@@ -198,6 +202,7 @@ export const useApp = create<AppStore>((set, get) => ({
       file,
     })) as { sessionId: string; state: SessionState };
     await get().setActiveSession(result.sessionId);
+    set({ openSessionIds: [...new Set([...get().openSessionIds, result.sessionId])] });
   },
 
   setActiveSession: async (sessionId) => {
@@ -208,12 +213,30 @@ export const useApp = create<AppStore>((set, get) => ({
     set({
       activeSessionId: sessionId,
       sessionState: state as SessionState,
+      openSessionIds: [...new Set([...get().openSessionIds, sessionId])],
       transcript: {
         ...initialTranscript,
         messages: messages as AgentMessage[],
         running: (state as SessionState).isStreaming,
       },
     });
+  },
+
+  closeSessionTab: async (sessionId) => {
+    const s = get();
+    const remaining = s.openSessionIds.filter((id) => id !== sessionId);
+    // If closing the active tab, switch to the last remaining one.
+    if (s.activeSessionId === sessionId) {
+      const next = remaining[remaining.length - 1];
+      set({ openSessionIds: remaining });
+      if (next) {
+        await get().setActiveSession(next);
+      } else {
+        set({ activeSessionId: null, transcript: { ...initialTranscript }, sessionState: null });
+      }
+    } else {
+      set({ openSessionIds: remaining });
+    }
   },
 
   renameSession: async (sessionId, name) => {
@@ -229,6 +252,11 @@ export const useApp = create<AppStore>((set, get) => ({
   prompt: async (text) => {
     const id = get().activeSessionId;
     if (!id) return;
+    // Auto-name: derive a tab title from the first prompt if unnamed.
+    const st = get().sessionState;
+    if (st?.sessionId === id && !st.name) {
+      void get().renameSession(id, autoName(text));
+    }
     await api().prompt(id, text);
   },
 
@@ -339,4 +367,11 @@ function applyAppearance(settings: AppSettings): void {
   // CSS zoom scales the whole UI; Chromium-only (Electron), non-standard but
   // a pragmatic way to honor the user's font-size preference globally.
   document.body.style.zoom = String(settings.fontSize / 13);
+}
+
+/** Derive a short session title from the first user prompt (Codex-style). */
+function autoName(text: string): string {
+  const cleaned = text.trim().replace(/\s+/g, " ");
+  const words = cleaned.split(" ").slice(0, 6).join(" ");
+  return words.length > 40 ? words.slice(0, 40).trimEnd() + "…" : words;
 }

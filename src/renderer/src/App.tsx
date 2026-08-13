@@ -4,6 +4,7 @@ import { Sidebar } from "./components/Sidebar";
 import { ThreadView } from "./components/ThreadView";
 import { Composer } from "./components/Composer";
 import { TopBar } from "./components/TopBar";
+import { SessionTabs } from "./components/SessionTabs";
 import { PanelStack } from "./components/PanelStack";
 import { PermissionDialog } from "./components/PermissionDialog";
 import { SettingsView } from "./views/SettingsView";
@@ -61,6 +62,7 @@ export default function App() {
         <main className="workspace">
           {view === "chat" && (
             <>
+              <SessionTabs />
               <TopBar />
               <div className="conversation-wrap">
                 {currentProject ? <ThreadView /> : <WelcomeView />}
