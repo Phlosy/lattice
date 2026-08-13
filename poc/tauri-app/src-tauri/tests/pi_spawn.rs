@@ -65,6 +65,15 @@ fn rust_spawns_pi_and_exchanges_rpc() {
     }
     assert!(got_state, "did not receive get_state response");
 
+    // Prompt streaming requires a real model API key. Without one (e.g. in a
+    // fresh CI runner), Pi errors immediately and the test would block/fail —
+    // so only run the streaming assertion when a key is present.
+    if std::env::var("DEEPSEEK_API_KEY").is_err() {
+        eprintln!("skipping prompt streaming: no DEEPSEEK_API_KEY");
+        let _ = pi.child.kill();
+        return;
+    }
+
     // Send prompt, expect agent_start + text_delta streaming
     writeln!(
         pi.stdin,
