@@ -85,11 +85,32 @@ async function crash() {
   log("(pi killed — crash isolation test)");
 }
 
+let ptyId = null;
+
+async function openTerminal() {
+  $("#terminal").classList.toggle("show");
+  if (ptyId) return;
+  ptyId = await invoke("pty_spawn", { cwd: currentPath });
+  log(`(terminal spawned: ${ptyId})`);
+}
+
+function termInput() {
+  const v = $("#term-input").value;
+  if (ptyId) {
+    invoke("pty_write", { id: ptyId, data: v + "\r" });
+  }
+  $("#term-input").value = "";
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   $("#open").addEventListener("click", openProject);
   $("#send").addEventListener("click", prompt);
   $("#abort").addEventListener("click", abort);
   $("#crash").addEventListener("click", crash);
+  $("#term").addEventListener("click", openTerminal);
+  $("#term-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") termInput();
+  });
   $("#input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") prompt();
   });
@@ -121,5 +142,21 @@ window.addEventListener("DOMContentLoaded", () => {
 
   listen("pi-exit", () => {
     log("(pi process exited — crash detected by Rust)");
+  });
+
+  listen("pty-data", (event) => {
+    const e = event.payload;
+    if (e.id === ptyId) {
+      $("#term-out").textContent += e.data;
+      $("#term-out").scrollTop = $("#term-out").scrollHeight;
+    }
+  });
+
+  listen("pty-exit", (event) => {
+    const e = event.payload;
+    if (e.id === ptyId) {
+      log("(terminal exited)");
+      ptyId = null;
+    }
   });
 });

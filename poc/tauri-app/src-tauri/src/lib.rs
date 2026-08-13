@@ -10,6 +10,7 @@ use tauri::{Emitter, State};
 
 pub mod workspace;
 pub mod git;
+pub mod pty;
 
 // Path to Pi's CLI entry, resolved relative to the workspace root (lattice/).
 const PI_ENTRY: &str = "node_modules/@earendil-works/pi-coding-agent/dist/cli.js";
@@ -109,6 +110,7 @@ fn pi_status(state: State<PiState>) -> Result<String, String> {
 pub fn run() {
     tauri::Builder::default()
         .manage(PiState(Mutex::new(None)))
+        .manage(pty::init_state())
         .invoke_handler(tauri::generate_handler![
             pi_prompt,
             pi_abort,
@@ -123,7 +125,11 @@ pub fn run() {
             git::git_commit,
             git::git_branches,
             git::git_worktrees,
-            git::git_create_worktree
+            git::git_create_worktree,
+            pty::pty_spawn,
+            pty::pty_write,
+            pty::pty_resize,
+            pty::pty_kill
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
