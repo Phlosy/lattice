@@ -62,7 +62,12 @@
     },
     "files": [
       "out/**/*",
-      "!**/.map"
+      "!**/*.map",
+      "!node_modules/@earendil-works/pi-coding-agent/docs/**",
+      "!node_modules/@earendil-works/pi-coding-agent/examples/**",
+      "!node_modules/@earendil-works/pi-coding-agent/CHANGELOG.md",
+      "!node_modules/@earendil-works/pi-coding-agent/README.md",
+      "!node_modules/@mariozechner/**"
     ],
     "asarUnpack": [
       "**/*.node",
@@ -95,7 +100,12 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "electronLanguages": [
+      "en",
+      "zh-CN",
+      "zh-TW"
+    ]
   },
   "allowScripts": {
     "node-pty@1.1.0": true,
