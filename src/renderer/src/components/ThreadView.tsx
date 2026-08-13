@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { AgentMessage } from "@shared/types";
 import { useApp } from "../store/useApp";
+import { useT } from "../i18n";
 import { AssistantMessageView, contentToText } from "./blocks";
 
 function BashExecutionView({ message }: { message: Extract<AgentMessage, { role: "bashExecution" }> }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const failed = message.exitCode !== 0 && message.exitCode !== undefined;
   return (
@@ -13,7 +15,7 @@ function BashExecutionView({ message }: { message: Extract<AgentMessage, { role:
         <span style={{ color: failed ? "var(--danger)" : "var(--success)" }}>{failed ? "✗" : "✓"}</span>
         <span className="kind">$ {message.command}</span>
         {message.exitCode !== undefined && (
-          <span className={`exit-${failed ? "err" : "0"}`}>exit {message.exitCode}</span>
+          <span className={`exit-${failed ? "err" : "0"}`}>{t("thread.exit")} {message.exitCode}</span>
         )}
       </div>
       {open && <div className="block-body">{message.output || "—"}</div>}
@@ -48,9 +50,9 @@ function MessageItem({ message }: { message: AgentMessage }) {
     case "bashExecution":
       return <BashExecutionView message={message} />;
     case "branchSummary":
-      return <SummaryBlock label="Branch summary" summary={message.summary} />;
+      return <BranchSummaryView summary={message.summary} />;
     case "compactionSummary":
-      return <SummaryBlock label="Context compacted" summary={message.summary} />;
+      return <CompactionView summary={message.summary} />;
     case "custom":
       if (!message.display) return null;
       return <div className="msg-user">{contentToText(message.content)}</div>;
@@ -59,10 +61,20 @@ function MessageItem({ message }: { message: AgentMessage }) {
   }
 }
 
+function BranchSummaryView({ summary }: { summary: string }) {
+  const t = useT();
+  return <SummaryBlock label={t("thread.branchSummary")} summary={summary} />;
+}
+
+function CompactionView({ summary }: { summary: string }) {
+  const t = useT();
+  return <SummaryBlock label={t("thread.compacted")} summary={summary} />;
+}
+
 export function ThreadView() {
+  const t = useT();
   const transcript = useApp((s) => s.transcript);
   const activeSessionId = useApp((s) => s.activeSessionId);
-  const prompt = useApp((s) => s.prompt);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -73,8 +85,8 @@ export function ThreadView() {
     return (
       <div className="empty-state">
         <div className="icon">＋</div>
-        <h2>No session</h2>
-        <p>Create a session to start a coding task with the agent.</p>
+        <h2>{t("thread.noSession")}</h2>
+        <p>{t("thread.noSessionDesc")}</p>
       </div>
     );
   }
@@ -100,12 +112,12 @@ export function ThreadView() {
         {transcript.running && !transcript.streaming && (
           <div className="loading-row">
             <span className="spinner" />
-            Waiting for the agent…
+            {t("thread.waiting")}
           </div>
         )}
         {transcript.lastError && (
           <div className="block block-error">
-            <div className="block-head">✗ Error</div>
+            <div className="block-head">✗ {t("thread.error")}</div>
             <div className="block-body">{transcript.lastError}</div>
           </div>
         )}
@@ -115,22 +127,22 @@ export function ThreadView() {
   );
 }
 
-const SUGGESTIONS = [
-  "Summarize this project",
-  "Find and fix bugs",
-  "Write unit tests",
-  "Explain the architecture",
-];
-
 function EmptySession() {
+  const t = useT();
   const prompt = useApp((s) => s.prompt);
+  const suggestions = [
+    t("suggest.summarize"),
+    t("suggest.bugs"),
+    t("suggest.tests"),
+    t("suggest.arch"),
+  ];
   return (
     <div className="empty-state empty-session">
       <div className="icon">Λ</div>
-      <h2>What should we work on?</h2>
-      <p>Describe a coding task, or start from one of these.</p>
+      <h2>{t("thread.emptyTitle")}</h2>
+      <p>{t("thread.emptyDesc")}</p>
       <div className="suggestions">
-        {SUGGESTIONS.map((s) => (
+        {suggestions.map((s) => (
           <button key={s} className="suggestion" onClick={() => void prompt(s)}>
             {s}
           </button>

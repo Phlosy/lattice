@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useApp } from "../store/useApp";
+import { useT } from "../i18n";
 import type { InstalledPackage, RegistryPackage } from "@shared/types";
 
 export function ExtensionsView() {
+  const t = useT();
   const currentProject = useApp((s) => s.currentProject);
   const [installed, setInstalled] = useState<InstalledPackage[]>([]);
   const [registry, setRegistry] = useState<RegistryPackage[]>([]);
@@ -55,15 +57,13 @@ export function ExtensionsView() {
   return (
     <div className="view">
       <div className="view-inner">
-        <h1>Extensions</h1>
-        <p className="desc">
-          Install Pi packages (extensions, skills, themes, prompts) from npm, git, or a local path.
-        </p>
+        <h1>{t("ext.title")}</h1>
+        <p className="desc">{t("ext.desc")}</p>
 
-        <h2>Install</h2>
+        <h2>{t("ext.install")}</h2>
         <div className="section-card">
           <div className="field">
-            <label>Source (npm:pkg · git:host/repo · /local/path)</label>
+            <label>{t("ext.source")}</label>
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 value={source}
@@ -75,12 +75,12 @@ export function ExtensionsView() {
                 }}
               />
               <button className="btn btn-primary" onClick={() => void install(source)} disabled={!source || !cwd}>
-                Install
+                {t("ext.install")}
               </button>
             </div>
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>Registry (JSON manifest URL or path)</label>
+            <label>{t("ext.registry")}</label>
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 value={registryUrl}
@@ -89,7 +89,7 @@ export function ExtensionsView() {
                 style={{ flex: 1 }}
               />
               <button className="btn" onClick={() => void loadRegistry()}>
-                Browse
+                {t("ext.browse")}
               </button>
             </div>
           </div>
@@ -98,7 +98,7 @@ export function ExtensionsView() {
 
         {registry.length > 0 && (
           <>
-            <h2>Registry</h2>
+            <h2>{t("ext.registryTitle")}</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {registry.map((p) => (
                 <div className="section-card" key={p.id}>
@@ -111,7 +111,7 @@ export function ExtensionsView() {
                       <div style={{ fontSize: 13, marginTop: 4 }}>{p.description}</div>
                     </div>
                     <button className="btn btn-sm btn-primary" onClick={() => void install(p.source)}>
-                      Install
+                      {t("ext.install")}
                     </button>
                   </div>
                 </div>
@@ -120,11 +120,11 @@ export function ExtensionsView() {
           </>
         )}
 
-        <h2>Installed</h2>
+        <h2>{t("ext.installed")}</h2>
         {installed.length === 0 ? (
           <div className="section-card">
             <div className="empty-state" style={{ padding: 24 }}>
-              <p>Nothing installed yet.</p>
+              <p>{t("ext.nothing")}</p>
             </div>
           </div>
         ) : (
@@ -137,7 +137,7 @@ export function ExtensionsView() {
                     <div className="desc" style={{ marginBottom: 0 }}>{p.location}</div>
                   </div>
                   <button className="btn btn-sm" onClick={() => void uninstall(p.source)}>
-                    Uninstall
+                    {t("ext.uninstall")}
                   </button>
                 </div>
               </div>

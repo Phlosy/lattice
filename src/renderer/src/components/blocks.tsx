@@ -5,6 +5,7 @@
 import { useState } from "react";
 import type { AgentMessage, AssistantMessage, ToolCall, ToolResultMessage } from "@shared/types";
 import type { ToolExecState } from "../lib/session-reducer";
+import { useT } from "../i18n";
 import { Markdown } from "./Markdown";
 import { DiffViewer } from "./DiffViewer";
 
@@ -61,14 +62,15 @@ export function findToolResult(messages: AgentMessage[], toolCallId: string): To
 // Thinking block — collapsed by default, expands to reveal reasoning.
 // ---------------------------------------------------------------------------
 export function ThinkingBlock({ thinking, running }: { thinking: string; running: boolean }) {
+  const t = useT();
   const [open, setOpen] = useState(running);
   return (
     <div className={`block block-thinking ${open ? "open" : ""}`}>
       <div className="block-head" onClick={() => setOpen((v) => !v)}>
         <span className="chev">▸</span>
         {running ? <span className="spinner" style={{ width: 11, height: 11 }} /> : <span>💭</span>}
-        <span className="kind">Thinking</span>
-        {running && <span className="badge running">running</span>}
+        <span className="kind">{t("block.thinking")}</span>
+        {running && <span className="badge running">{t("block.running")}</span>}
       </div>
       {open && <div className="block-body">{thinking}</div>}
     </div>
@@ -96,6 +98,7 @@ export function ToolBlock({
   exec?: ToolExecState;
   result?: ToolResultMessage;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const state = toolState(exec);
   const summary = summarizeArgs(call.name, call.arguments);
@@ -125,7 +128,7 @@ export function ToolBlock({
           ) : bodyText ? (
             bodyText
           ) : state === "error" ? (
-            <span style={{ color: "var(--danger)" }}>Tool failed.</span>
+            <span style={{ color: "var(--danger)" }}>{t("block.toolFailed")}</span>
           ) : (
             "—"
           )}
@@ -150,6 +153,7 @@ export function AssistantMessageView({
   execs: Record<string, ToolExecState>;
   messages: AgentMessage[];
 }) {
+  const t = useT();
   return (
     <div className="msg-assistant">
       {message.content.map((block, i) => {
@@ -166,7 +170,7 @@ export function AssistantMessageView({
       })}
       {message.errorMessage && (
         <div className="block block-error">
-          <div className="block-head">✗ Error</div>
+          <div className="block-head">✗ {t("thread.error")}</div>
           <div className="block-body">{message.errorMessage}</div>
         </div>
       )}

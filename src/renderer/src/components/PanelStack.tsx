@@ -1,5 +1,6 @@
 import { useCallback, useRef } from "react";
 import { useApp, type PanelKind } from "../store/useApp";
+import { useT } from "../i18n";
 import { TerminalPanel } from "./TerminalPanel";
 import { GitPanel } from "./GitPanel";
 
@@ -19,6 +20,7 @@ function PanelTab({ kind, label, count }: { kind: PanelKind; label: string; coun
 }
 
 export function PanelStack() {
+  const t = useT();
   const activePanel = useApp((s) => s.activePanel);
   const panelHeight = useApp((s) => s.panelHeight);
   const setPanelHeight = useApp((s) => s.setPanelHeight);
@@ -64,8 +66,8 @@ export function PanelStack() {
     <div className="panel-stack" style={{ height: panelHeight }}>
       <div className="resize-handle" onMouseDown={onMouseDown} />
       <div className="panel-tabs">
-        <PanelTab kind="terminal" label="Terminal" />
-        <PanelTab kind="git" label="Git" count={changedFiles} />
+        <PanelTab kind="terminal" label={t("term.panel")} />
+        <PanelTab kind="git" label={t("topbar.git")} count={changedFiles} />
         <div className="spacer" />
         <button className="icon-btn" onClick={closePanel} data-tooltip="Close panel">
           ✕

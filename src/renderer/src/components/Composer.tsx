@@ -1,7 +1,9 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useApp } from "../store/useApp";
+import { useT } from "../i18n";
 
 export function Composer() {
+  const t = useT();
   const [text, setText] = useState("");
   const prompt = useApp((s) => s.prompt);
   const abort = useApp((s) => s.abort);
@@ -43,7 +45,7 @@ export function Composer() {
           <textarea
             ref={textareaRef}
             rows={1}
-            placeholder={disabled ? "Select a model to start" : "Ask Lattice to build, fix, or explain…"}
+            placeholder={disabled ? t("composer.placeholderNoModel") : t("composer.placeholder")}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
@@ -51,22 +53,22 @@ export function Composer() {
             disabled={disabled}
           />
           {running ? (
-            <button className="stop-btn" onClick={() => void abort()} data-tooltip="Stop (Esc)">
+            <button className="stop-btn" onClick={() => void abort()} data-tooltip={`${t("composer.stop")} (Esc)`}>
               ■
             </button>
           ) : (
-            <button className="send-btn" onClick={submit} disabled={!text.trim() || disabled} data-tooltip="Send (⏎)">
+            <button className="send-btn" onClick={submit} disabled={!text.trim() || disabled} data-tooltip={`${t("composer.send")} (⏎)`}>
               ↑
             </button>
           )}
         </div>
         <div className="composer-hint">
           <span>
-            <kbd>⏎</kbd> send · <kbd>⇧⏎</kbd> newline
+            <kbd>⏎</kbd> {t("composer.send")} · <kbd>⇧⏎</kbd> {t("composer.newline")}
           </span>
           {running && (
             <span className="queue">
-              {queueCount > 0 ? `${queueCount} queued` : "agent is working…"}
+              {queueCount > 0 ? `${queueCount} ${t("composer.queued")}` : t("composer.working")}
             </span>
           )}
           <span className="spacer" />

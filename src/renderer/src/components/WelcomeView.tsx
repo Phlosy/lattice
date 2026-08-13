@@ -1,20 +1,22 @@
 import { useApp } from "../store/useApp";
+import { useT } from "../i18n";
 
 export function WelcomeView() {
+  const t = useT();
   const openProject = useApp((s) => s.openProject);
   const projects = useApp((s) => s.projects);
 
   return (
     <div className="empty-state">
       <div className="icon">Λ</div>
-      <h2>Welcome to Lattice</h2>
-      <p>A desktop coding agent powered by the Pi runtime. Open a folder to get started.</p>
+      <h2>{t("welcome.title")}</h2>
+      <p>{t("welcome.desc")}</p>
       <button className="btn btn-primary" onClick={() => openProject()}>
-        Open folder
+        {t("sidebar.openFolder")}
       </button>
       {projects.length > 0 && (
         <div style={{ marginTop: 24, width: "100%", maxWidth: 360, textAlign: "left" }}>
-          <div className="sidebar-section-title">Recent</div>
+          <div className="sidebar-section-title">{t("welcome.recent")}</div>
           {projects.map((p) => (
             <div key={p.path} className="item" onClick={() => openProject(p.path)}>
               <span className="status-dot success" />
