@@ -38,11 +38,13 @@ jobs:
 
       - name: Validate version matches git tag
         if: github.ref_type == 'tag'
+        shell: bash
         run: |
           V="${GITHUB_REF_NAME#v}"
           node scripts/check-version.mjs "$V"
 
       - name: Set version from package.json
+        shell: bash
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
@@ -78,7 +80,8 @@ jobs:
         run: npm run build:ui
 
       - name: Build Pi sidecar
-        run: bash scripts/build-pi-sidecar.sh "${{ matrix.platform }}"
+        shell: bash
+        run: scripts/build-pi-sidecar.sh "${{ matrix.platform }}"
 
       - name: Tauri build
         run: npx tauri build --config poc/tauri-app/src-tauri/tauri.conf.json --target "${{ matrix.target }}"
@@ -111,7 +114,11 @@ jobs:
         shell: bash
         run: |
           cd dist-artifacts
-          sha256sum * > SHA256SUMS
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum * > SHA256SUMS
+          else
+            shasum -a 256 * > SHA256SUMS
+          fi
           cat SHA256SUMS
 
       - uses: actions/upload-artifact@v4
