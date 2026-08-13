@@ -144,6 +144,17 @@ window.addEventListener("DOMContentLoaded", () => {
     log("(pi process exited — crash detected by Rust)");
   });
 
+  listen("ui-request", (event) => {
+    const e = event.payload;
+    if (e.method === "confirm") {
+      log(`[permission] ${e.title}: ${e.message ?? ""}`);
+      const ok = window.confirm(`${e.title}\n\n${e.message ?? ""}`);
+      invoke("pi_respond_ui", { id: e.id, confirmed: ok });
+    } else if (e.method === "select" || e.method === "input") {
+      log(`[ui] ${e.method}: ${e.title}`);
+    }
+  });
+
   listen("pty-data", (event) => {
     const e = event.payload;
     if (e.id === ptyId) {

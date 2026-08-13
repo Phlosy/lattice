@@ -31,6 +31,8 @@ fn ensure_spawned(app: &tauri::AppHandle, state: &PiState) -> Result<(), String>
         .arg("--session-dir")
         .arg(SESSION_DIR)
         .arg("--approve")
+        .arg("--extension")
+        .arg("poc/tauri-app/extensions/permission-gate.ts")
         .current_dir("../../..") // lattice workspace root
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -48,7 +50,11 @@ fn ensure_spawned(app: &tauri::AppHandle, state: &PiState) -> Result<(), String>
             match line {
                 Ok(line) => {
                     if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
-                        let _ = app_handle.emit("pi-event", &v);
+                        if v["type"] == "extension_ui_request" {
+                            let _ = app_handle.emit("ui-request", &v);
+                        } else {
+                            let _ = app_handle.emit("pi-event", &v);
+                        }
                     }
                 }
                 Err(_) => break,
@@ -74,6 +80,21 @@ fn pi_prompt(app: tauri::AppHandle, state: State<PiState>, text: String) -> Resu
     writeln!(stdin, "{cmd}").map_err(|e| e.to_string())?;
     stdin.flush().map_err(|e| e.to_string())?;
     Ok("prompt sent".into())
+}
+
+#[tauri::command]
+fn pi_respond_ui(state: State<PiState>, id: String, confirmed: bool) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    let child = guard.as_mut().ok_or("pi not running")?;
+    let stdin = child.stdin.as_mut().ok_or("no stdin")?;
+    let cmd = serde_json::json!({
+        "type": "extension_ui_response",
+        "id": id,
+        "confirmed": confirmed
+    });
+    writeln!(stdin, "{cmd}").map_err(|e| e.to_string())?;
+    stdin.flush().map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -113,6 +134,7 @@ pub fn run() {
         .manage(pty::init_state())
         .invoke_handler(tauri::generate_handler![
             pi_prompt,
+            pi_respond_ui,
             pi_abort,
             pi_crash,
             pi_status,
