@@ -56,6 +56,13 @@ export function createLatticeTauri(): LatticeApi {
     respondPermission: (requestId, action) =>
       invoke("pi_respond_ui", { id: requestId, confirmed: action.startsWith("allow") }) as Promise<boolean>,
 
+    // Model
+    getModels: () => invoke("get_models") as Promise<never>,
+    setModel: (_sessionId, providerId, modelId) =>
+      invoke("set_model", { provider: providerId, modelId }) as Promise<never>,
+    setThinkingLevel: (_sessionId, level) =>
+      invoke("set_thinking_level", { level }) as Promise<boolean>,
+
     // Session (JSONL file-backed, no live Pi process needed for listing)
     getSessions: (_cwd) =>
       invoke("session_list", { sessionDir: "/tmp/pi-tauri-sessions" }) as never,

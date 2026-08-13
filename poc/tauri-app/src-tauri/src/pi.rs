@@ -1,0 +1,166 @@
+// Pi RPC sidecar management — spawn, send fire-and-forget commands, and
+// request/response commands (used by model/session queries). Shared between
+// the agent commands and the model commands via Tauri managed state.
+
+use std::collections::HashMap;
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{mpsc, Arc, Mutex};
+
+use tauri::{Emitter, State};
+
+pub const PI_ENTRY: &str = "node_modules/@earendil-works/pi-coding-agent/dist/cli.js";
+pub const SESSION_DIR: &str = "/tmp/pi-tauri-sessions";
+
+pub struct PiShared {
+    child: Mutex<Option<Child>>,
+    pending: Arc<Mutex<HashMap<String, mpsc::Sender<serde_json::Value>>>>,
+    counter: AtomicU32,
+}
+
+impl PiShared {
+    pub fn new() -> Self {
+        PiShared {
+            child: Mutex::new(None),
+            pending: Arc::new(Mutex::new(HashMap::new())),
+            counter: AtomicU32::new(0),
+        }
+    }
+}
+
+pub fn ensure_spawned(app: &tauri::AppHandle, shared: &PiShared) -> Result<(), String> {
+    let mut guard = shared.child.lock().map_err(|e| e.to_string())?;
+    if guard.is_some() {
+        return Ok(());
+    }
+
+    let mut child = Command::new("node")
+        .arg(PI_ENTRY)
+        .arg("--mode")
+        .arg("rpc")
+        .arg("--session-dir")
+        .arg(SESSION_DIR)
+        .arg("--approve")
+        .arg("--extension")
+        .arg("poc/tauri-app/extensions/permission-gate.ts")
+        .current_dir("../../..") // lattice workspace root
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .map_err(|e| format!("failed to spawn Pi: {e}"))?;
+
+    eprintln!("[pi] spawned pid={}", child.id());
+
+    let stdout = child.stdout.take().ok_or("no stdout")?;
+    let app_handle = app.clone();
+    let pending = Arc::clone(&shared.pending);
+    std::thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            match line {
+                Ok(line) => {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
+                        if v["type"] == "response" {
+                            if let Some(id) = v["id"].as_str() {
+                                if let Some(tx) = pending.lock().unwrap().remove(id) {
+                                    let _ = tx.send(v["data"].clone());
+                                }
+                            }
+                        } else if v["type"] == "extension_ui_request" {
+                            let _ = app_handle.emit("ui-request", &v);
+                        } else {
+                            let _ = app_handle.emit("pi-event", &v);
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+        let _ = app_handle.emit("pi-exit", ());
+    });
+
+    *guard = Some(child);
+    Ok(())
+}
+
+/// Fire-and-forget command (prompt/abort/respond) — no response awaited.
+pub fn pi_send(shared: &PiShared, command: serde_json::Value) -> Result<(), String> {
+    let mut guard = shared.child.lock().map_err(|e| e.to_string())?;
+    let child = guard.as_mut().ok_or("pi not running")?;
+    let stdin = child.stdin.as_mut().ok_or("no stdin")?;
+    writeln!(stdin, "{command}").map_err(|e| e.to_string())?;
+    stdin.flush().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Request/response command (get_state/get_available_models/set_model/…).
+pub fn pi_request(shared: &PiShared, command: serde_json::Value) -> Result<serde_json::Value, String> {
+    let id = format!("req_{}", shared.counter.fetch_add(1, Ordering::SeqCst));
+    let (tx, rx) = mpsc::channel();
+    shared
+        .pending
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(id.clone(), tx);
+
+    let mut cmd = command;
+    if let serde_json::Value::Object(ref mut obj) = cmd {
+        obj.insert("id".to_string(), serde_json::json!(id));
+    }
+
+    {
+        let mut guard = shared.child.lock().map_err(|e| e.to_string())?;
+        let child = guard.as_mut().ok_or("pi not running")?;
+        let stdin = child.stdin.as_mut().ok_or("no stdin")?;
+        writeln!(stdin, "{cmd}").map_err(|e| e.to_string())?;
+        stdin.flush().map_err(|e| e.to_string())?;
+    }
+
+    rx.recv_timeout(std::time::Duration::from_secs(60))
+        .map_err(|e| format!("pi request timeout: {e}"))
+}
+
+// ---- Tauri commands ----
+
+#[tauri::command]
+pub fn pi_prompt(app: tauri::AppHandle, shared: State<PiShared>, text: String) -> Result<String, String> {
+    ensure_spawned(&app, &shared)?;
+    pi_send(&shared, serde_json::json!({ "type": "prompt", "message": text }))?;
+    Ok("prompt sent".into())
+}
+
+#[tauri::command]
+pub fn pi_abort(app: tauri::AppHandle, shared: State<PiShared>) -> Result<String, String> {
+    ensure_spawned(&app, &shared)?;
+    pi_send(&shared, serde_json::json!({ "type": "abort" }))?;
+    Ok("abort sent".into())
+}
+
+#[tauri::command]
+pub fn pi_respond_ui(shared: State<PiShared>, id: String, confirmed: bool) -> Result<(), String> {
+    pi_send(
+        &shared,
+        serde_json::json!({ "type": "extension_ui_response", "id": id, "confirmed": confirmed }),
+    )
+}
+
+#[tauri::command]
+pub fn pi_crash(shared: State<PiShared>) -> Result<String, String> {
+    let mut guard = shared.child.lock().map_err(|e| e.to_string())?;
+    if let Some(child) = guard.as_mut() {
+        let _ = child.kill();
+    }
+    *guard = None;
+    Ok("pi killed".into())
+}
+
+#[tauri::command]
+pub fn pi_status(shared: State<PiShared>) -> Result<String, String> {
+    let guard = shared.child.lock().map_err(|e| e.to_string())?;
+    Ok(match guard.as_ref() {
+        Some(child) => format!("running (pid={})", child.id()),
+        None => "stopped".into(),
+    })
+}
