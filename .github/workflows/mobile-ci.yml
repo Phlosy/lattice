@@ -32,6 +32,7 @@ jobs:
         run: |
           npm run typecheck
           npm run build:ui
+          mkdir -p poc/tauri-app/src-tauri/pi-sidecar
 
       - name: Rust compile check (iOS device + simulator)
         working-directory: poc/tauri-app/src-tauri
@@ -69,6 +70,11 @@ jobs:
 
       - name: Install npm deps
         run: npm ci --ignore-scripts
+
+      - name: Prepare Tauri build artifacts (frontendDist + resources)
+        run: |
+          npm run build:ui
+          mkdir -p poc/tauri-app/src-tauri/pi-sidecar
 
       - name: Rust compile check (Android)
         working-directory: poc/tauri-app/src-tauri
