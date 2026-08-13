@@ -1,5 +1,8 @@
 // PTY terminal commands for the Tauri Desktop Core.
 // Uses portable-pty (cross-platform: ConPTY on Windows, openpty on Unix).
+// Desktop-only: portable-pty does not build on iOS/Android (no forkpty), and
+// Mobile is a Remote Runtime Client (PTY runs on the Runtime Host).
+#![cfg(desktop)]
 
 use std::collections::HashMap;
 use std::io::{Read, Write};

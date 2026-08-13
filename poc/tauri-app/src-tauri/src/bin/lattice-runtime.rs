@@ -1,6 +1,8 @@
 //! Lattice Runtime Host — a headless WebSocket server that exposes the Pi RPC
 //! sidecar (and later workspace/git/pty) to remote clients (mobile / desktop).
 //!
+//! Desktop-only: mobile is a Remote Runtime Client, not a host.
+//!
 //! Protocol: JSON over WebSocket.
 //!   client → host:  { "id": "r1", "method": "prompt", "params": {...}, "token": "..." }
 //!   host → client:  { "type": "response", "id": "r1", "data": {...} }
@@ -221,6 +223,7 @@ async fn handle_connection(
     }
 }
 
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[tokio::main]
 async fn main() {
     let addr = std::env::var("LATTICE_RUNTIME_ADDR").unwrap_or_else(|_| "127.0.0.1:8787".into());
@@ -270,3 +273,8 @@ async fn main() {
         }
     }
 }
+
+// Mobile: the Runtime Host is desktop-only; provide a no-op entry so the bin
+// still satisfies `cargo check --target <mobile>`.
+#[cfg(any(target_os = "ios", target_os = "android"))]
+fn main() {}

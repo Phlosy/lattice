@@ -7,6 +7,7 @@ pub mod marketplace;
 pub mod model;
 pub mod pi;
 pub mod projects;
+#[cfg(desktop)]
 pub mod pty;
 pub mod session;
 pub mod settings;
@@ -14,9 +15,10 @@ pub mod workspace;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .manage(std::sync::Arc::new(pi::PiShared::new()))
-        .manage(pty::init_state())
+    let builder = tauri::Builder::default().manage(std::sync::Arc::new(pi::PiShared::new()));
+    #[cfg(desktop)]
+    let builder = builder.manage(pty::init_state());
+    builder
         .invoke_handler(tauri::generate_handler![
             pi::pi_prompt,
             pi::pi_respond_ui,
@@ -36,9 +38,13 @@ pub fn run() {
             git::git_branches,
             git::git_worktrees,
             git::git_create_worktree,
+            #[cfg(desktop)]
             pty::pty_spawn,
+            #[cfg(desktop)]
             pty::pty_write,
+            #[cfg(desktop)]
             pty::pty_resize,
+            #[cfg(desktop)]
             pty::pty_kill,
             settings::get_settings,
             settings::set_settings,
