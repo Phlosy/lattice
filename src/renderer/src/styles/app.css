@@ -611,8 +611,8 @@ body[data-platform="darwin"] .sidebar-header {
 .msg-user {
   align-self: flex-end;
   max-width: 82%;
-  background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  background: var(--accent-subtle);
+  border: none;
   border-radius: var(--radius-lg);
   padding: var(--sp-3) var(--sp-4);
   white-space: pre-wrap;
