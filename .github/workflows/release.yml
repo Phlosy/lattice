@@ -160,6 +160,7 @@ jobs:
 
   release:
     name: create release
+    if: github.ref_type == 'tag'
     needs: build
     runs-on: ubuntu-latest
     steps:
