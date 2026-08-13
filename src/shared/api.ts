@@ -44,7 +44,8 @@ export interface LatticeApi {
   deleteSession(file: string): Promise<boolean>;
   getSessionState(sessionId: string): Promise<SessionState>;
   getSessionMessages(sessionId: string): Promise<AgentMessage[]>;
-  prompt(sessionId: string, text: string): Promise<boolean>;
+  prompt(sessionId: string, text: string, images?: Array<{ type: "image"; data: string; mimeType: string }>): Promise<boolean>;
+  listFiles(cwd: string): Promise<string[]>;
   steer(sessionId: string, text: string): Promise<boolean>;
   followUp(sessionId: string, text: string): Promise<boolean>;
   abort(sessionId: string): Promise<boolean>;

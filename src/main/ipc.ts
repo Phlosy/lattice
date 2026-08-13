@@ -2,6 +2,8 @@
 
 import { ipcMain, dialog, shell } from "electron";
 import type { BrowserWindow } from "electron";
+import { readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { IPC } from "@shared/types";
 import type { AppState } from "./state";
 import type { WorkspaceManager } from "./workspace";
@@ -73,10 +75,10 @@ export function registerIpc(ctx: IpcContext): void {
   ipcMain.handle(IPC.GetSessionState, (_e, sessionId: string) => ctx.sessions.getState(sessionId));
   ipcMain.handle(IPC.GetSessionMessages, (_e, sessionId: string) => ctx.sessions.getMessages(sessionId));
 
-  ipcMain.handle(IPC.Prompt, async (_e, sessionId: string, text: string) => {
+  ipcMain.handle(IPC.Prompt, async (_e, sessionId: string, text: string, images?: unknown[]) => {
     const h = ctx.sessions.get(sessionId);
     if (!h) throw new Error("Session not found");
-    await h.prompt(text);
+    await h.prompt(text, images);
     return true;
   });
   ipcMain.handle(IPC.Steer, async (_e, sessionId: string, text: string) => {
@@ -101,6 +103,9 @@ export function registerIpc(ctx: IpcContext): void {
     if (h) await h.continueAfterError();
     return true;
   });
+
+  // --- filesystem ---
+  ipcMain.handle(IPC.ListFiles, (_e, cwd: string) => listProjectFiles(cwd));
 
   // --- models ---
   ipcMain.handle(IPC.GetProviders, () => ctx.runtime.getProviders());
@@ -180,4 +185,41 @@ export function registerIpc(ctx: IpcContext): void {
 async function wrapSession(ctx: IpcContext, handlePromise: Promise<import("./runtime/types").SessionHandle>) {
   const h = await handlePromise;
   return { sessionId: h.sessionId, cwd: h.cwd, file: h.file, state: h.getState() };
+}
+
+const IGNORED_DIRS = new Set([
+  "node_modules", ".git", "dist", "out", "build", "release", ".next",
+  ".cache", "coverage", ".venv", "__pycache__", ".DS_Store", "target",
+]);
+
+/** Recursively list project files (relative paths), bounded for the @-picker. */
+function listProjectFiles(cwd: string, maxFiles = 400, maxDepth = 6): string[] {
+  const out: string[] = [];
+  const walk = (dir: string, depth: number) => {
+    if (depth > maxDepth || out.length >= maxFiles) return;
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const name of entries) {
+      if (out.length >= maxFiles) return;
+      if (IGNORED_DIRS.has(name)) continue;
+      const full = join(dir, name);
+      let st;
+      try {
+        st = statSync(full);
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) {
+        walk(full, depth + 1);
+      } else {
+        out.push(full.slice(cwd.length + 1));
+      }
+    }
+  };
+  walk(cwd, 0);
+  return out;
 }

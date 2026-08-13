@@ -59,7 +59,7 @@ interface AppStore {
   renameSession: (sessionId: string, name: string) => Promise<void>;
   deleteSession: (file: string) => Promise<void>;
 
-  prompt: (text: string) => Promise<void>;
+  prompt: (text: string, images?: Array<{ type: "image"; data: string; mimeType: string }>) => Promise<void>;
   steer: (text: string) => Promise<void>;
   followUp: (text: string) => Promise<void>;
   abort: () => Promise<void>;
@@ -252,7 +252,7 @@ export const useApp = create<AppStore>((set, get) => ({
     await get().refreshSessions();
   },
 
-  prompt: async (text) => {
+  prompt: async (text, images) => {
     const id = get().activeSessionId;
     if (!id) return;
     // Auto-name: derive a tab title from the first prompt if unnamed.
@@ -260,7 +260,7 @@ export const useApp = create<AppStore>((set, get) => ({
     if (st?.sessionId === id && !st.name) {
       void get().renameSession(id, autoName(text));
     }
-    await api().prompt(id, text);
+    await api().prompt(id, text, images);
   },
 
   steer: async (text) => {

@@ -89,8 +89,10 @@ class PiSessionHandle implements SessionHandle {
     return this.session.subscribe((event) => listener(event as unknown as Record<string, unknown>));
   }
 
-  async prompt(text: string, _images?: unknown[]): Promise<void> {
-    await this.session.prompt(text);
+  async prompt(text: string, images?: unknown[]): Promise<void> {
+    await this.session.prompt(text, {
+      images: images as Array<{ type: "image"; data: string; mimeType: string }>,
+    });
   }
 
   async steer(text: string): Promise<void> {

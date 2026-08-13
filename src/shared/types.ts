@@ -322,6 +322,7 @@ export const IPC = {
   GetSessionState: "session:state",
   GetSessionMessages: "session:messages",
   Prompt: "session:prompt",
+  ListFiles: "fs:list",
   Steer: "session:steer",
   FollowUp: "session:followUp",
   Abort: "session:abort",
