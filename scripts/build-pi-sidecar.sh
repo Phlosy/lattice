@@ -34,7 +34,7 @@ case "$PLATFORM" in
   darwin-x64)    TARGET=bun-darwin-x64-baseline;   BIN=pi ;;
   linux-x64)     TARGET=bun-linux-x64-baseline;    BIN=pi ;;
   linux-arm64)   TARGET=bun-linux-arm64;           BIN=pi ;;
-  windows-x64)   TARGET=bun-windows-x64-baseline;  BIN=pi.exe ;;
+  windows-x64)   TARGET=bun;                      BIN=pi.exe ;;  # native (avoid baseline runtime download issue on Windows runners)
   windows-arm64) TARGET=bun-windows-arm64;         BIN=pi.exe ;;
   *) echo "invalid platform: $PLATFORM"; exit 1 ;;
 esac
