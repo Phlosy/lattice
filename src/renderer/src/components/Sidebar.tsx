@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useApp } from "../store/useApp";
-import { useContextMenu } from "./ContextMenu";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
+
+interface MenuState {
+  x: number;
+  y: number;
+  items: MenuItem[];
+}
 
 export function Sidebar() {
   const projects = useApp((s) => s.projects);
@@ -17,28 +23,38 @@ export function Sidebar() {
 
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [menu, setMenu] = useState<MenuState | null>(null);
 
-  const sessionMenu = (sessionId: string, file: string | undefined) =>
-    useContextMenu([
-      {
-        label: "Rename",
-        onClick: () => {
-          setRenaming(sessionId);
-          setRenameValue(sessions.find((s) => s.id === sessionId)?.name ?? "");
+  const openSessionMenu = (e: React.MouseEvent, sessionId: string, file: string | undefined) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        {
+          label: "Rename",
+          onClick: () => {
+            setRenaming(sessionId);
+            setRenameValue(sessions.find((s) => s.id === sessionId)?.name ?? "");
+          },
         },
-      },
-      { separator: true },
-      {
-        label: "Delete",
-        danger: true,
-        onClick: () => {
-          if (file) void deleteSession(file);
+        { separator: true },
+        {
+          label: "Delete",
+          danger: true,
+          onClick: () => {
+            if (file) void deleteSession(file);
+          },
         },
-      },
-    ]);
+      ],
+    });
+  };
 
-  const projectMenu = (path: string) =>
-    useContextMenu([{ label: "Remove from recents", onClick: () => void 0 }]);
+  const startRename = (sessionId: string) => {
+    setRenaming(sessionId);
+    setRenameValue(sessions.find((s) => s.id === sessionId)?.name ?? "");
+  };
 
   return (
     <aside className="sidebar">
@@ -67,22 +83,17 @@ export function Sidebar() {
             </button>
           </div>
         )}
-        {projects.map((p) => {
-          const menu = projectMenu(p.path);
-          return (
-            <div key={p.path} onContextMenu={menu.open}>
-              <div
-                className={`item ${currentProject?.path === p.path ? "active" : ""}`}
-                onClick={() => void openProject(p.path)}
-              >
-                <span className="status-dot success" />
-                <span className="item-label">{p.name}</span>
-                <span className="item-meta">{p.kind === "repo" ? "⑂" : "▤"}</span>
-              </div>
-              {menu.menu}
-            </div>
-          );
-        })}
+        {projects.map((p) => (
+          <div
+            key={p.path}
+            className={`item ${currentProject?.path === p.path ? "active" : ""}`}
+            onClick={() => void openProject(p.path)}
+          >
+            <span className="status-dot success" />
+            <span className="item-label">{p.name}</span>
+            <span className="item-meta">{p.kind === "repo" ? "⑂" : "▤"}</span>
+          </div>
+        ))}
       </div>
 
       {currentProject && (
@@ -95,10 +106,9 @@ export function Sidebar() {
           </div>
           <div className="sidebar-list">
             {sessions.map((s) => {
-              const menu = sessionMenu(s.id, s.file);
               const isActive = activeSessionId === s.id;
               return (
-                <div key={s.id} onContextMenu={menu.open}>
+                <div key={s.id} onContextMenu={(e) => openSessionMenu(e, s.id, s.file)}>
                   {renaming === s.id ? (
                     <input
                       className="rename-input"
@@ -119,13 +129,8 @@ export function Sidebar() {
                       }}
                     />
                   ) : (
-                    <div
-                      className={`item ${isActive ? "active" : ""}`}
-                      onClick={() => void setActiveSession(s.id)}
-                    >
-                      <span
-                        className={`status-dot ${isActive && running ? "running" : isActive ? "success" : ""}`}
-                      />
+                    <div className={`item ${isActive ? "active" : ""}`} onClick={() => void setActiveSession(s.id)}>
+                      <span className={`status-dot ${isActive && running ? "running" : isActive ? "success" : ""}`} />
                       <span className="item-label">{s.name || s.id.slice(0, 8)}</span>
                       <span className="item-meta">{s.messageCount}</span>
                       <span className="item-actions">
@@ -134,8 +139,7 @@ export function Sidebar() {
                           data-tooltip="Rename"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setRenaming(s.id);
-                            setRenameValue(s.name ?? "");
+                            startRename(s.id);
                           }}
                         >
                           ✎
@@ -153,7 +157,6 @@ export function Sidebar() {
                       </span>
                     </div>
                   )}
-                  {menu.menu}
                 </div>
               );
             })}
@@ -181,6 +184,8 @@ export function Sidebar() {
           ＋ New
         </button>
       </div>
+
+      {menu && <ContextMenu items={menu.items} x={menu.x} y={menu.y} onClose={() => setMenu(null)} />}
     </aside>
   );
 }
