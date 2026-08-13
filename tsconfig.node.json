@@ -4,8 +4,12 @@
     "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2023"],
-    "types": ["node"],
+    "lib": [
+      "ES2023"
+    ],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -15,8 +19,12 @@
     "noUnusedParameters": false,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["src/shared/*"],
-      "@main/*": ["src/main/*"]
+      "@shared/*": [
+        "src/shared/*"
+      ],
+      "@main/*": [
+        "legacy/electron/main/*"
+      ]
     }
   },
   "include": [

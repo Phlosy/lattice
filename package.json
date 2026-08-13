@@ -5,34 +5,28 @@
   "description": "A cross-platform desktop coding agent powered by the Pi runtime.",
   "author": "Lattice Contributors",
   "license": "MIT",
-  "main": "./out/main/index.js",
   "type": "module",
   "scripts": {
-    "dev": "electron-vite dev",
-    "start": "electron-vite preview",
-    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
-    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
-    "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "build": "electron-vite build",
+    "dev": "tauri dev --config poc/tauri-app/src-tauri/tauri.conf.json",
+    "build:ui": "vite build --config tauri-vite.config.ts",
+    "build:sidecar": "bash scripts/build-pi-sidecar.sh",
+    "build": "npm run build:ui && npm run build:sidecar && tauri build --config poc/tauri-app/src-tauri/tauri.conf.json",
+    "typecheck": "tsc --noEmit -p tsconfig.web.json",
     "test": "vitest --run",
     "test:watch": "vitest",
-    "rebuild": "electron-rebuild -f -w node-pty",
-    "gen:icon": "node scripts/gen-icon.mjs",
-    "package:mac": "electron-vite build && electron-builder --mac",
-    "package:win": "electron-vite build && electron-builder --win",
-    "package:linux": "electron-vite build && electron-builder --linux"
+    "check:version": "node scripts/check-version.mjs",
+    "release:check": "bash scripts/release-check.sh",
+    "gen:icon": "node scripts/gen-icon.mjs"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "0.84.1",
     "@earendil-works/pi-agent-core": "0.84.1",
+    "@earendil-works/pi-ai": "0.84.1",
     "@earendil-works/pi-coding-agent": "0.84.1",
     "diff": "8.0.4",
-    "node-pty": "1.1.0",
-    "simple-git": "3.36.0",
     "typebox": "1.3.7"
   },
   "devDependencies": {
-    "@electron/rebuild": "3.7.2",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/diff": "7.0.2",
     "@types/node": "22.19.19",
     "@types/react": "19.0.8",
@@ -41,9 +35,6 @@
     "@xterm/addon-fit": "0.11.0",
     "@xterm/addon-web-links": "0.12.0",
     "@xterm/xterm": "6.0.0",
-    "electron": "43.4.0",
-    "electron-builder": "26.15.3",
-    "electron-vite": "5.0.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-markdown": "9.0.3",
@@ -52,60 +43,6 @@
     "vite": "6.2.0",
     "vitest": "3.0.8",
     "zustand": "5.0.3"
-  },
-  "build": {
-    "appId": "dev.lattice.desktop",
-    "productName": "Lattice",
-    "directories": {
-      "output": "release",
-      "buildResources": "resources"
-    },
-    "files": [
-      "out/**/*",
-      "!**/*.map",
-      "!node_modules/@earendil-works/pi-coding-agent/docs/**",
-      "!node_modules/@earendil-works/pi-coding-agent/examples/**",
-      "!node_modules/@earendil-works/pi-coding-agent/CHANGELOG.md",
-      "!node_modules/@earendil-works/pi-coding-agent/README.md",
-      "!node_modules/@mariozechner/**"
-    ],
-    "asarUnpack": [
-      "**/*.node",
-      "node_modules/node-pty/**/*",
-      "node_modules/@earendil-works/**/*",
-      "node_modules/@silvia-odwyer/**/*"
-    ],
-    "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ],
-      "category": "public.app-category.developer-tools",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ],
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "Development",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "electronLanguages": [
-      "en",
-      "zh-CN",
-      "zh-TW"
-    ]
   },
   "allowScripts": {
     "node-pty@1.1.0": true,
