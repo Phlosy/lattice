@@ -16,6 +16,11 @@ declare global {
 // Expose the store so the visual-regression driver can reach UI state.
 window.__latticeStore = useApp;
 
+// Tag the document with the platform so CSS can adapt (e.g. macOS traffic lights).
+window.lattice.appInfo().then((info) => {
+  document.body.dataset.platform = info.platform;
+});
+
 // Capture runtime errors so the capture driver can inspect them.
 (globalThis as unknown as { __latticeErrors: string[] }).__latticeErrors = [];
 const pushError = (msg: string) => {

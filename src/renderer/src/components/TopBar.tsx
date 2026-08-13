@@ -1,8 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../store/useApp";
+import { useT } from "../i18n";
 import type { ModelInfo } from "@shared/types";
 
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+
+function groupModels(models: ModelInfo[]): Array<{ provider: string; models: ModelInfo[] }> {
+  const map = new Map<string, ModelInfo[]>();
+  for (const m of models) {
+    const list = map.get(m.provider) ?? [];
+    list.push(m);
+    map.set(m.provider, list);
+  }
+  return [...map.entries()].map(([provider, models]) => ({ provider, models }));
+}
 
 function usePopover() {
   const [open, setOpen] = useState(false);
@@ -27,6 +38,7 @@ function usePopover() {
 
 export function TopBar() {
   const sessionState = useApp((s) => s.sessionState);
+  const t = useT();
   const currentProject = useApp((s) => s.currentProject);
   const models = useApp((s) => s.models);
   const gitStatus = useApp((s) => s.gitStatus);
@@ -41,6 +53,16 @@ export function TopBar() {
 
   const modelPop = usePopover();
   const thinkPop = usePopover();
+  const [modelQuery, setModelQuery] = useState("");
+
+  const filteredModels = modelQuery.trim()
+    ? models.filter(
+        (m) =>
+          m.name.toLowerCase().includes(modelQuery.toLowerCase()) ||
+          m.provider.toLowerCase().includes(modelQuery.toLowerCase()) ||
+          m.id.toLowerCase().includes(modelQuery.toLowerCase()),
+      )
+    : models;
 
   useEffect(() => {
     void loadModels();
@@ -58,32 +80,48 @@ export function TopBar() {
             <span className="sep">/</span>
           </>
         )}
-        <span className="session">{sessionState?.name || "New session"}</span>
+        <span className="session">{sessionState?.name || t("topbar.newSession")}</span>
       </div>
 
       <div className="topbar-controls">
         <div ref={modelPop.ref} style={{ position: "relative" }}>
           <button className="picker-btn" onClick={() => modelPop.setOpen((v) => !v)}>
-            {model ? model.name : "Select model"}
+            {model ? model.name : t("topbar.selectModel")}
             <span className="chev">▾</span>
           </button>
           {modelPop.open && (
-            <div className="popover" style={{ top: "100%", right: 0, marginTop: 4, width: 340 }}>
-              <div className="popover-header">Model</div>
+            <div className="popover" style={{ top: "100%", right: 0, marginTop: 4, width: 360 }}>
+              <div className="popover-header">{t("topbar.model")}</div>
+              <div className="popover-search">
+                <input
+                  placeholder="Search models…"
+                  value={modelQuery}
+                  onChange={(e) => setModelQuery(e.target.value)}
+                  autoFocus
+                />
+              </div>
               <div className="popover-list">
-                {models.length === 0 && <div className="empty-state" style={{ padding: 16 }}>No models. Add a key in Settings.</div>}
-                {models.map((m: ModelInfo) => (
-                  <button
-                    key={`${m.provider}/${m.id}`}
-                    className={`popover-item ${model?.id === m.id && model?.provider === m.provider ? "selected" : ""}`}
-                    onClick={() => {
-                      void setModel(m.provider, m.id);
-                      modelPop.setOpen(false);
-                    }}
-                  >
-                    <span>{m.name}</span>
-                    <span className="sub">{m.provider}</span>
-                  </button>
+                {filteredModels.length === 0 && <div className="empty-state" style={{ padding: 16 }}>No models found.</div>}
+                {groupModels(filteredModels).map((group) => (
+                  <div key={group.provider}>
+                    <div className="popover-group">{group.provider}</div>
+                    {group.models.map((m: ModelInfo) => {
+                      const selected = model?.id === m.id && model?.provider === m.provider;
+                      return (
+                        <button
+                          key={`${m.provider}/${m.id}`}
+                          className={`popover-item ${selected ? "selected" : ""}`}
+                          onClick={() => {
+                            void setModel(m.provider, m.id);
+                            modelPop.setOpen(false);
+                          }}
+                        >
+                          <span className={m.available === false ? "dimmed" : ""}>{m.name}</span>
+                          {m.available === false && <span className="sub">{t("settings.apiKey")}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                 ))}
               </div>
             </div>
@@ -97,7 +135,7 @@ export function TopBar() {
           </button>
           {thinkPop.open && (
             <div className="popover" style={{ top: "100%", right: 0, marginTop: 4, width: 180 }}>
-              <div className="popover-header">Reasoning</div>
+              <div className="popover-header">{t("topbar.reasoning")}</div>
               <div className="popover-list">
                 {THINKING_LEVELS.map((level) => (
                   <button
@@ -119,20 +157,20 @@ export function TopBar() {
 
       <div className="topbar-status">
         <span className={`status-dot ${running ? "running" : ""}`} />
-        {running ? "Working" : "Idle"}
+        {running ? t("topbar.working") : t("topbar.idle")}
       </div>
 
-      <button className="icon-btn" data-tooltip="Terminal" onClick={() => void createTerminal()}>
+      <button className="icon-btn" data-tooltip={t("topbar.terminal")} onClick={() => void createTerminal()}>
         ⌘
       </button>
       <button
         className={`icon-btn ${activePanel === "git" ? "active" : ""}`}
-        data-tooltip="Git"
+        data-tooltip={t("topbar.git")}
         onClick={() => togglePanel("git")}
       >
         {gitStatus && !gitStatus.clean ? `⑂${gitStatus.files.length}` : "⑂"}
       </button>
-      <button className="icon-btn" data-tooltip="Settings" onClick={() => setView("settings")}>
+      <button className="icon-btn" data-tooltip={t("sidebar.settings")} onClick={() => setView("settings")}>
         ⚙
       </button>
     </div>

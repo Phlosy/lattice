@@ -48,6 +48,7 @@ interface AppStore {
   init: () => Promise<void>;
   setView: (v: View) => void;
   openProject: (path?: string) => Promise<void>;
+  removeProject: (path: string) => Promise<void>;
   refreshSessions: () => Promise<void>;
   createSession: (name?: string) => Promise<void>;
   openSession: (file: string) => Promise<void>;
@@ -95,6 +96,7 @@ export const useApp = create<AppStore>((set, get) => ({
   models: [],
   settings: {
     theme: "dark",
+    locale: "en",
     fontSize: 13,
     accent: "#4f8cff",
     sandboxMode: "none",
@@ -156,6 +158,11 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ currentProject: project, view: "chat", activeSessionId: null, transcript: { ...initialTranscript } });
     await get().refreshSessions();
     await get().refreshGit();
+  },
+
+  removeProject: async (path) => {
+    await api().removeProject(path);
+    set({ projects: get().projects.filter((p) => p.path !== path) });
   },
 
   refreshSessions: async () => {

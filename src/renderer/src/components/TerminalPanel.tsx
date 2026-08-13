@@ -3,8 +3,10 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useApp } from "../store/useApp";
+import { useT } from "../i18n";
 
 export function TerminalPanel() {
+  const t = useT();
   const terminals = useApp((s) => s.terminals);
   const killTerminal = useApp((s) => s.killTerminal);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -22,17 +24,25 @@ export function TerminalPanel() {
   useEffect(() => {
     if (!containerRef.current || !activeId) return;
     const term = new Terminal({
-      fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace",
+      fontFamily: "'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace",
       fontSize: 12,
-      lineHeight: 1.4,
-      theme: {
-        background: "#0e0e12",
-        foreground: "#e6e6ea",
-        cursor: "#6ea8fe",
-        selectionBackground: "rgba(110,168,254,0.3)",
-      },
+      fontWeight: "300",
+      lineHeight: 1.5,
+      letterSpacing: 0,
+      cursorStyle: "bar",
       cursorBlink: true,
+      cursorWidth: 1,
+      theme: {
+        background: "#0c0d11",
+        foreground: "#d5d5dc",
+        cursor: "#7aa2ff",
+        cursorAccent: "#0c0d11",
+        selectionBackground: "rgba(122, 162, 255, 0.28)",
+        black: "#16171c",
+        brightBlack: "#4a4b55",
+      },
       scrollback: 4000,
+      allowProposedApi: true,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -73,7 +83,7 @@ export function TerminalPanel() {
     return (
       <div className="empty-state" style={{ flex: 1 }}>
         <div className="icon">⌘</div>
-        <p>No terminal. Open one from the top bar.</p>
+        <p>{t("term.noTerminal")}</p>
       </div>
     );
   }

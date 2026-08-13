@@ -231,6 +231,12 @@
   justify-content: space-between;
   padding: var(--sp-3) var(--sp-4);
   -webkit-app-region: drag;
+  min-height: 52px;
+}
+/* On macOS the titlebar uses hiddenInset, so the traffic lights overlap the
+   left edge — reserve space for them. */
+body[data-platform="darwin"] .sidebar-header {
+  padding-left: 76px;
 }
 .sidebar-header .icon-btn {
   -webkit-app-region: no-drag;
@@ -322,6 +328,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+.item-project .item-label {
+  font-size: var(--fs-13);
+}
+.item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.item-sub {
+  font-size: var(--fs-11);
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .item-meta {
   flex-shrink: 0;
@@ -979,7 +1002,8 @@ kbd {
   flex: 1;
   min-height: 0;
   padding: var(--sp-2);
-  background: var(--surface-inset);
+  /* Terminal stays dark regardless of app theme (Codex-style). */
+  background: #0c0d11;
 }
 .terminal-host .xterm {
   height: 100%;
@@ -1034,6 +1058,40 @@ kbd {
   text-align: right;
   color: var(--text-muted);
   font-size: var(--fs-11);
+}
+.popover-item .dimmed {
+  color: var(--text-muted);
+}
+.popover-group {
+  padding: var(--sp-2) var(--sp-2) 2px;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border-subtle);
+  margin-top: var(--sp-1);
+}
+.popover-group:first-child {
+  border-top: none;
+  margin-top: 0;
+}
+.popover-search {
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.popover-search input {
+  width: 100%;
+  padding: 6px var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: var(--fs-12);
+  outline: none;
+}
+.popover-search input:focus {
+  border-color: var(--border-focus);
 }
 @keyframes pop-in {
   from {

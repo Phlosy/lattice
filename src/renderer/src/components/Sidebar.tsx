@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useApp } from "../store/useApp";
+import { useT } from "../i18n";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 interface MenuState {
@@ -9,12 +10,14 @@ interface MenuState {
 }
 
 export function Sidebar() {
+  const t = useT();
   const projects = useApp((s) => s.projects);
   const currentProject = useApp((s) => s.currentProject);
   const sessions = useApp((s) => s.sessions);
   const activeSessionId = useApp((s) => s.activeSessionId);
   const running = useApp((s) => s.transcript.running);
   const openProject = useApp((s) => s.openProject);
+  const removeProject = useApp((s) => s.removeProject);
   const createSession = useApp((s) => s.createSession);
   const setActiveSession = useApp((s) => s.setActiveSession);
   const renameSession = useApp((s) => s.renameSession);
@@ -33,7 +36,7 @@ export function Sidebar() {
       y: e.clientY,
       items: [
         {
-          label: "Rename",
+          label: t("sidebar.rename"),
           onClick: () => {
             setRenaming(sessionId);
             setRenameValue(sessions.find((s) => s.id === sessionId)?.name ?? "");
@@ -41,12 +44,26 @@ export function Sidebar() {
         },
         { separator: true },
         {
-          label: "Delete",
+          label: t("sidebar.delete"),
           danger: true,
           onClick: () => {
             if (file) void deleteSession(file);
           },
         },
+      ],
+    });
+  };
+
+  const openProjectMenu = (e: React.MouseEvent, path: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: t("sidebar.open"), onClick: () => void openProject(path) },
+        { separator: true },
+        { label: t("sidebar.removeRecents"), danger: true, onClick: () => void removeProject(path) },
       ],
     });
   };
@@ -63,34 +80,38 @@ export function Sidebar() {
           <span className="brand-mark">Λ</span>
           Lattice
         </span>
-        <button className="icon-btn" data-tooltip="New session" onClick={() => void createSession()}>
+        <button className="icon-btn" data-tooltip={t("sidebar.newSession")} onClick={() => void createSession()}>
           ＋
         </button>
       </div>
 
       <div className="sidebar-section">
         <div className="sidebar-section-title">
-          Projects
-          <button className="icon-btn" data-tooltip="Open folder" onClick={() => void openProject()}>
+          {t("sidebar.projects")}
+          <button className="icon-btn" data-tooltip={t("sidebar.openFolder")} onClick={() => void openProject()}>
             ▤
           </button>
         </div>
         {projects.length === 0 && (
           <div className="empty-state" style={{ padding: 16, gap: 8 }}>
-            <p>No projects yet.</p>
+            <p>{t("sidebar.noProjects")}</p>
             <button className="btn btn-sm" onClick={() => void openProject()}>
-              Open folder
+              {t("sidebar.openFolder")}
             </button>
           </div>
         )}
         {projects.map((p) => (
           <div
             key={p.path}
-            className={`item ${currentProject?.path === p.path ? "active" : ""}`}
+            className={`item item-project ${currentProject?.path === p.path ? "active" : ""}`}
             onClick={() => void openProject(p.path)}
+            onContextMenu={(e) => openProjectMenu(e, p.path)}
           >
             <span className="status-dot success" />
-            <span className="item-label">{p.name}</span>
+            <div className="item-text">
+              <span className="item-label">{p.name}</span>
+              <span className="item-sub">{p.path}</span>
+            </div>
             <span className="item-meta">{p.kind === "repo" ? "⑂" : "▤"}</span>
           </div>
         ))}
@@ -99,8 +120,8 @@ export function Sidebar() {
       {currentProject && (
         <div className="sidebar-section grow">
           <div className="sidebar-section-title">
-            Sessions
-            <button className="icon-btn" data-tooltip="New session" onClick={() => void createSession()}>
+            {t("sidebar.sessions")}
+            <button className="icon-btn" data-tooltip={t("sidebar.newSession")} onClick={() => void createSession()}>
               ＋
             </button>
           </div>
@@ -136,7 +157,7 @@ export function Sidebar() {
                       <span className="item-actions">
                         <button
                           className="icon-btn"
-                          data-tooltip="Rename"
+                          data-tooltip={t("sidebar.rename")}
                           onClick={(e) => {
                             e.stopPropagation();
                             startRename(s.id);
@@ -146,7 +167,7 @@ export function Sidebar() {
                         </button>
                         <button
                           className="icon-btn"
-                          data-tooltip="Delete"
+                          data-tooltip={t("sidebar.delete")}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (s.file) void deleteSession(s.file);
@@ -162,9 +183,9 @@ export function Sidebar() {
             })}
             {sessions.length === 0 && (
               <div className="empty-state" style={{ padding: 16, gap: 8 }}>
-                <p>No sessions.</p>
+                <p>{t("sidebar.noSessions")}</p>
                 <button className="btn btn-sm" onClick={() => void createSession()}>
-                  New session
+                  {t("sidebar.newSession")}
                 </button>
               </div>
             )}
@@ -173,15 +194,15 @@ export function Sidebar() {
       )}
 
       <div className="sidebar-footer">
-        <button className="icon-btn" data-tooltip="Extensions" onClick={() => setView("extensions")}>
+        <button className="icon-btn" data-tooltip={t("sidebar.extensions")} onClick={() => setView("extensions")}>
           ⧉
         </button>
-        <button className="icon-btn" data-tooltip="Settings" onClick={() => setView("settings")}>
+        <button className="icon-btn" data-tooltip={t("sidebar.settings")} onClick={() => setView("settings")}>
           ⚙
         </button>
         <div style={{ flex: 1 }} />
         <button className="btn btn-primary btn-sm" onClick={() => void createSession()} disabled={!currentProject}>
-          ＋ New
+          ＋ {t("sidebar.new")}
         </button>
       </div>
 
