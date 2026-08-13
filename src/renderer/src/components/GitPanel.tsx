@@ -3,6 +3,12 @@ import { useApp } from "../store/useApp";
 import { useT } from "../i18n";
 import { DiffViewer } from "./DiffViewer";
 
+interface Worktree {
+  path: string;
+  branch: string;
+  locked: boolean;
+}
+
 export function GitPanel() {
   const t = useT();
   const currentProject = useApp((s) => s.currentProject);
@@ -13,6 +19,10 @@ export function GitPanel() {
   const [diff, setDiff] = useState("");
   const [message, setMessage] = useState("");
 
+  const [worktrees, setWorktrees] = useState<Worktree[]>([]);
+  const [showWt, setShowWt] = useState(false);
+  const [wtBranch, setWtBranch] = useState("");
+
   useEffect(() => {
     void refreshGit();
   }, [refreshGit]);
@@ -21,6 +31,24 @@ export function GitPanel() {
     if (!selected || !currentProject) return;
     window.lattice.gitDiff(currentProject.path, [selected]).then((d) => setDiff(d as string));
   }, [selected, currentProject]);
+
+  useEffect(() => {
+    if (!currentProject) return;
+    window.lattice
+      .gitListWorktrees(currentProject.path)
+      .then((list) => setWorktrees(list as Worktree[]))
+      .catch(() => setWorktrees([]));
+  }, [currentProject, showWt]);
+
+  const createWorktree = async () => {
+    if (!currentProject || !wtBranch.trim()) return;
+    const branch = wtBranch.trim();
+    const path = `${currentProject.path}/../.lattice-wt/${branch}`;
+    await window.lattice.gitCreateWorktree(currentProject.path, path, branch);
+    setWtBranch("");
+    setShowWt(false);
+    await refreshGit();
+  };
 
   if (!currentProject || !gitStatus) {
     return (
@@ -55,7 +83,37 @@ export function GitPanel() {
           ))}
           {gitStatus.files.length === 0 && <div className="empty-state">{t("git.noChanges")}</div>}
         </div>
+
+        {/* Worktrees */}
+        <div className="wt-section">
+          <div className="wt-head" onClick={() => setShowWt((v) => !v)}>
+            <span>{t("git.worktrees")}</span>
+            <span className="chev">{showWt ? "▾" : "▸"}</span>
+          </div>
+          {showWt && (
+            <div className="wt-body">
+              {worktrees.map((wt) => (
+                <div key={wt.path} className="wt-row" title={wt.path}>
+                  <span className="status-dot success" />
+                  <span className="wt-branch">{wt.branch}</span>
+                  {wt.locked && <span className="wt-locked">🔒</span>}
+                </div>
+              ))}
+              <div className="wt-create">
+                <input
+                  value={wtBranch}
+                  onChange={(e) => setWtBranch(e.target.value)}
+                  placeholder={t("git.worktreeBranch")}
+                />
+                <button className="btn btn-sm" onClick={() => void createWorktree()} disabled={!wtBranch.trim()}>
+                  {t("git.createWorktree")}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
       <div className="git-diff">
         {selected ? <DiffViewer diff={diff} /> : <div className="empty-state">{t("git.selectFile")}</div>}
       </div>

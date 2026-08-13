@@ -82,6 +82,9 @@ const en = {
   "git.commitMessage": "Commit message",
   "git.commit": "Commit",
   "git.noChanges": "No changes",
+  "git.worktrees": "Worktrees",
+  "git.createWorktree": "Create worktree",
+  "git.worktreeBranch": "Branch name",
 
   // Terminal
   "term.noTerminal": "No terminal. Open one from the top bar.",
@@ -198,6 +201,9 @@ const zh: Record<keyof typeof en, string> = {
   "git.commitMessage": "提交信息",
   "git.commit": "提交",
   "git.noChanges": "无更改",
+  "git.worktrees": "工作树",
+  "git.createWorktree": "创建工作树",
+  "git.worktreeBranch": "分支名",
 
   "term.noTerminal": "暂无终端。从顶部栏打开一个。",
   "term.panel": "终端",

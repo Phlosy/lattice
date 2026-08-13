@@ -1568,6 +1568,60 @@ kbd {
   border-color: var(--border-focus);
 }
 
+/* Worktrees */
+.wt-section {
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.wt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px var(--sp-3);
+  cursor: pointer;
+  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-weight: var(--fw-medium);
+}
+.wt-head:hover { background: var(--surface-2); }
+.wt-head .chev { color: var(--text-faint); }
+.wt-body { padding: var(--sp-1); }
+.wt-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 5px var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+}
+.wt-row:hover { background: var(--surface-2); }
+.wt-branch {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wt-locked { font-size: var(--fs-10); }
+.wt-create {
+  display: flex;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2) var(--sp-2);
+}
+.wt-create input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: var(--fs-12);
+  outline: none;
+}
+.wt-create input:focus { border-color: var(--border-focus); }
+
 /* ---- Inline file changes (Codex-style diff integration) ------------------- */
 .file-changes {
   border: 1px solid var(--border-subtle);
