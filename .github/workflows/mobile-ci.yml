@@ -36,8 +36,8 @@ jobs:
       - name: Rust compile check (iOS device + simulator)
         working-directory: poc/tauri-app/src-tauri
         run: |
-          cargo check --target aarch64-apple-ios
-          cargo check --target aarch64-apple-ios-sim
+          cargo check --target aarch64-apple-ios --message-format=short
+          cargo check --target aarch64-apple-ios-sim --message-format=short
 
   android-check:
     name: Android compile check
@@ -75,5 +75,5 @@ jobs:
         env:
           NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
         run: |
-          cargo check --target aarch64-linux-android
-          cargo check --target x86_64-linux-android
+          cargo check --target aarch64-linux-android --message-format=short
+          cargo check --target x86_64-linux-android --message-format=short
