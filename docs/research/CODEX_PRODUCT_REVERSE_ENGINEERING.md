@@ -78,11 +78,16 @@ Codex Workspace（Electron 单窗口，三栏）
 
 ## 5. Agent Workspace（Observed）
 
-- **用户消息**：右对齐（x≈0.605），气泡样式（Estimated）。
+- **用户消息**：右对齐（x≈0.60），气泡样式（Estimated）。
 - **Agent 消息**：左对齐（x≈0.24），**Markdown 渲染**（标题、列表、代码块、表格）。
 - **文件变更**：Agent 修改文件后，变更列表以 `path +N -M` 形式直接出现在消息流中。
 - **数据表格**：Agent 输出表格时以 Markdown 表格渲染（列头 factor/rank IC/rank ICIR/t/pos%）。
 - 消息流从顶栏下方开始，到底部 composer 上方结束。
+
+### 打开项目 / 项目详情（本轮新增 Observed）
+- **Cmd+O** 打开「Select Project Root」对话框（macOS 原生 NSOpenPanel，含 iCloud/用户/Macintosh HD 侧边栏 + 文件列表）。
+- 点击 sidebar 项目 → 主内容区显示**项目详情**（项目名 + 工作目录路径 `~/workspace/<name>`），同时 composer 出现（进入新会话就绪态）。
+- **Cmd+N** 新建会话（tab），composer 上方显示「项目名 • 分支名」。
 
 ---
 

@@ -89,15 +89,29 @@ case "clickn":
 case "type":
     let text = args.dropFirst(2).joined(separator: " ")
     for ch in text.unicodeScalars {
-        if let ev = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
+        if let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true),
+           let up = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) {
             var buf = [UniChar](repeating: 0, count: 1)
             buf[0] = UniChar(ch.value)
-            ev.keyboardSetUnicodeString(stringLength: 1, unicodeString: &buf)
-            ev.post(tap: .cghidEventTap)
-            usleep(20000)
+            down.keyboardSetUnicodeString(stringLength: 1, unicodeString: &buf)
+            down.post(tap: .cghidEventTap)
+            up.post(tap: .cghidEventTap)
+            usleep(15000)
         }
     }
     print("typed \(text.count) chars")
+
+case "type2":
+    // Use System Events keystroke (more reliable than raw CGEvent unicode)
+    let text = args.dropFirst(2).joined(separator: " ")
+    let escaped = text.replacingOccurrences(of: "\"", with: "\\\\\"")
+    let script = "tell application \"System Events\" to keystroke \"\(escaped)\""
+    let task = Process()
+    task.launchPath = "/usr/bin/osascript"
+    task.arguments = ["-e", script]
+    task.launch()
+    task.waitUntilExit()
+    print("type2 sent \(text.count) chars")
 
 case "key":
     let keys = args[2]
