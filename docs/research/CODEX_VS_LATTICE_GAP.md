@@ -162,10 +162,10 @@
 9. ✅ **Worktree UI 入口**。（已实现：GitPanel 内 worktree 列表 + 创建）
 10. ✅ **视觉低对比化**。（已实现：弱化 shadow + 用户消息去边框）
 
-### P2（增强）
-11. Sidebar 折叠为图标列。
-12. 模型入口移到 sidebar 底部深色 badge。
-13. Terminal 保留但确认为"超出 Codex 的能力"，降为可折叠。
+### P2（增强）— 实现状态
+11. ✅ **Sidebar 折叠为图标列**。（已实现：48px 图标列 + tooltip）
+12. ✅ **模型入口移到 sidebar 底部 badge**。（已实现：抽出 ModelPicker 共用）
+13. ✅ **Terminal 可折叠**。（已满足：bottom panel 可切换/关闭/resize）
 
 ---
 
