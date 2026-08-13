@@ -57,13 +57,14 @@ jobs:
         working-directory: poc/tauri-app/src-tauri
         shell: bash
         run: |
+          set +e
           rustc --version
           cargo clippy --version
           cargo clippy --all-targets --message-format=short > /tmp/clippy.out 2>&1
           RC=$?
           cat /tmp/clippy.out
           if [ $RC -ne 0 ]; then
-            echo "::error::clippy failed: $(tail -50 /tmp/clippy.out | tr '\n' ' | ' | head -c 50000)"
+            echo "::error::clippy failed: $(tail -60 /tmp/clippy.out | tr '\n' ' | ' | head -c 50000)"
           fi
           exit $RC
 
