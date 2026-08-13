@@ -56,6 +56,12 @@ export function createLatticeTauri(): LatticeApi {
     respondPermission: (requestId, action) =>
       invoke("pi_respond_ui", { id: requestId, confirmed: action.startsWith("allow") }) as Promise<boolean>,
 
+    // Session (JSONL file-backed, no live Pi process needed for listing)
+    getSessions: (_cwd) =>
+      invoke("session_list", { sessionDir: "/tmp/pi-tauri-sessions" }) as never,
+    getSessionMessages: (sessionId) =>
+      invoke("session_messages", { file: sessionId }) as Promise<never>,
+
     // Marketplace
     extList: () => invoke("pi_list") as never,
     extInstall: (_cwd, source) => invoke("pi_install", { source }) as Promise<boolean>,
