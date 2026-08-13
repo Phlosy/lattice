@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lattice Tauri PoC</title>
+    <style>
+      body { font-family: -apple-system, sans-serif; margin: 0; background: #0f1014; color: #e6e6ea; display: flex; flex-direction: column; height: 100vh; }
+      #output { flex: 1; overflow-y: auto; padding: 16px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+      #controls { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #26272e; }
+      #input { flex: 1; background: #1a1b20; border: 1px solid #33343c; border-radius: 6px; color: #e6e6ea; padding: 8px 12px; font-size: 13px; }
+      button { background: #2a2b31; border: 1px solid #33343c; color: #e6e6ea; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 13px; }
+      button:hover { background: #34353c; }
+      #send { background: #6ea8fe; color: #0f1014; border-color: #6ea8fe; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div id="output"></div>
+    <div id="controls">
+      <input id="input" placeholder="Ask the Pi sidecar…" />
+      <button id="send">Send</button>
+      <button id="abort">Abort</button>
+      <button id="crash">Crash</button>
+      <button id="status">Status</button>
+    </div>
+    <script src="./main.js"></script>
+  </body>
+</html>
