@@ -59,8 +59,24 @@ jobs:
         run: |
           rustc --version
           cargo clippy --version
-          cargo clippy --all-targets --message-format=short 2>&1 | tee /tmp/clippy.log
-          exit "${PIPESTATUS[0]}"
+          cargo clippy --all-targets --message-format=short 2>&1 | node -e '
+            let input = "";
+            process.stdin.on("data", (d) => (input += d));
+            process.stdin.on("end", () => {
+              let failed = false;
+              for (const line of input.split("\n")) {
+                const m = line.match(/^([^:]+):(\d+):(\d+):\s+(error|warning):\s+(.*)$/);
+                if (m) {
+                  const [, file, ln, col, level, msg] = m;
+                  if (level === "error") failed = true;
+                  console.log(`::${level} file=${file},line=${ln},col=${col}::${msg}`);
+                } else if (line.trim()) {
+                  console.log(line);
+                }
+              }
+              process.exit(failed ? 1 : 0);
+            });
+          '
 
       - name: Rust tests
         working-directory: poc/tauri-app/src-tauri
