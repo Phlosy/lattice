@@ -6,7 +6,7 @@ use tauri::{AppHandle, State};
 use crate::pi::{ensure_spawned, pi_request, PiShared};
 
 #[tauri::command]
-pub fn get_models(app: AppHandle, shared: State<PiShared>) -> Result<Vec<serde_json::Value>, String> {
+pub fn get_models(app: AppHandle, shared: State<std::sync::Arc<PiShared>>) -> Result<Vec<serde_json::Value>, String> {
     ensure_spawned(&app, &shared)?;
     let data = pi_request(&shared, serde_json::json!({ "type": "get_available_models" }))?;
     let models = data
@@ -19,7 +19,7 @@ pub fn get_models(app: AppHandle, shared: State<PiShared>) -> Result<Vec<serde_j
 #[tauri::command]
 pub fn set_model(
     app: AppHandle,
-    shared: State<PiShared>,
+    shared: State<std::sync::Arc<PiShared>>,
     provider: String,
     model_id: String,
 ) -> Result<serde_json::Value, String> {
@@ -33,7 +33,7 @@ pub fn set_model(
 #[tauri::command]
 pub fn set_thinking_level(
     app: AppHandle,
-    shared: State<PiShared>,
+    shared: State<std::sync::Arc<PiShared>>,
     level: String,
 ) -> Result<(), String> {
     ensure_spawned(&app, &shared)?;

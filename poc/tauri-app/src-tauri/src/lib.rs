@@ -15,7 +15,7 @@ pub mod projects;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(pi::PiShared::new())
+        .manage(std::sync::Arc::new(pi::PiShared::new()))
         .manage(pty::init_state())
         .invoke_handler(tauri::generate_handler![
             pi::pi_prompt,
@@ -24,6 +24,7 @@ pub fn run() {
             pi::pi_follow_up,
             pi::pi_abort,
             pi::pi_crash,
+            pi::pi_stop,
             pi::pi_status,
             workspace::open_project,
             workspace::list_files,
