@@ -57,8 +57,11 @@ mkdir -p "$OUT"
 
 # Cross-compilation from a non-matching host is not supported by this script;
 # native/dependency alignment is enforced at release time by the CI matrix.
+# Use a relative --outfile (then move) to avoid MSYS/Git Bash path rewriting
+# on Windows breaking the absolute --outfile argument.
 (cd "$PI_PKG" && bun build --compile --no-compile-autoload-bunfig \
-  --target="$TARGET" ./dist/bun/cli.js --outfile "$OUT/$BIN")
+  --target="$TARGET" ./dist/bun/cli.js --outfile "$BIN") || exit 1
+mv "$PI_PKG/$BIN" "$OUT/$BIN"
 
 # --- copy resources Pi reads from next to its executable ---------------------
 echo "==> Copying runtime resources..."
