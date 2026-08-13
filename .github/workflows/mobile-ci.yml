@@ -34,6 +34,12 @@ jobs:
           npm run build:ui
           mkdir -p poc/tauri-app/src-tauri/pi-sidecar
 
+      - name: Configure Xcode (full Xcode, not CommandLineTools)
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+          xcrun --show-sdk-path --sdk iphoneos
+
       - name: Rust compile check (iOS device + simulator)
         working-directory: poc/tauri-app/src-tauri
         run: |
@@ -78,8 +84,11 @@ jobs:
 
       - name: Rust compile check (Android)
         working-directory: poc/tauri-app/src-tauri
-        env:
-          NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
         run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/ndk" 2>/dev/null || echo "no ndk dir"
+          NDK=$(ls "$ANDROID_HOME/ndk" 2>/dev/null | head -1)
+          echo "NDK=$NDK"
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK"
           cargo check --target aarch64-linux-android --message-format=short
           cargo check --target x86_64-linux-android --message-format=short
