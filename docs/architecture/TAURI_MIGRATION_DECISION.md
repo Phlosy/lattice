@@ -63,22 +63,22 @@
 - Windows/Linux 未真实运行（Tauri 理论跨平台，但需实测）。
 - 完整迁移的工程工作量（Rust 需实现 Workspace/Git/PTY/Permission 等 Desktop Core）。
 
-## 4. 迁移顺序（渐进，禁止 Big Bang）
+## 4. 迁移顺序（渐进，禁止 Big Bang）— 实施进度
 
-```
-Tauri Skeleton          ✅（PoC 已建）
-Pi RPC sidecar          ✅（已验证）
-Workspace / Filesystem  → 待实现
-Git / Worktree          → 待实现
-PTY                    → 待实现（portable-pty crate）
-Permission             → 待实现
-Settings               → 待实现
-Marketplace Bridge     → 待实现
-Full E2E               → 待实现
-Remove Electron        → 最后
-```
+| 模块 | 状态 | 验证 |
+|---|---|---|
+| Tauri Skeleton | ✅ | 骨架 + 编译 |
+| Pi RPC sidecar | ✅ | Node 8/8 + Rust headless（spawn/prompt/streaming/tool/cancel/crash） |
+| Workspace / Filesystem | ✅ | headless 测试（open/list/read/write 往返） |
+| Git / Worktree | ✅ | headless 测试（status/diff/commit/worktree 创建） |
+| PTY | ✅ | headless 测试（portable-pty spawn/write/read） |
+| Permission | ✅ | permission-test.mjs（confirm → bash → settled） |
+| Settings | ✅ | headless 测试（get/set 往返） |
+| Marketplace Bridge | ✅ | headless 测试（pi_list） |
+| **Full E2E** | ✅ | **e2e.mjs 6/6**（项目→prompt→write 工具→文件变更→git→继续） |
+| Remove Electron | ⬜ | 最后一步：React UI 接入 Tauri |
 
-每个模块迁移后运行原有测试（unit/integration/E2E）。
+每个模块均以真实运行验证（非 Mock）。
 
 ## 5. Pi sidecar 关键设计（PoC 已确立）
 
