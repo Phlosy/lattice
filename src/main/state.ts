@@ -1,0 +1,104 @@
+// Lattice app state — recent projects and app-only settings. Kept under
+// ~/.lattice/ so it never conflicts with Pi's own config (~/.pi/agent).
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import type { AppSettings, ProjectInfo } from "@shared/types";
+
+const DEFAULT_SETTINGS: AppSettings = {
+  theme: "dark",
+  fontSize: 13,
+  accent: "#4f8cff",
+  sandboxMode: "none",
+  autoApproveReadOnly: true,
+};
+
+export function latticeDir(): string {
+  return join(homedir(), ".lattice");
+}
+
+export function decisionsPath(): string {
+  return join(latticeDir(), "permissions.json");
+}
+
+interface StateShape {
+  version: number;
+  recentProjects: ProjectInfo[];
+  settings: AppSettings;
+}
+
+export class AppState {
+  private state: StateShape;
+  private readonly file: string;
+
+  constructor() {
+    this.file = join(latticeDir(), "state.json");
+    this.state = this.load();
+  }
+
+  private load(): StateShape {
+    try {
+      const raw = readFileSync(this.file, "utf8");
+      const parsed = JSON.parse(raw) as Partial<StateShape>;
+      return {
+        version: 1,
+        recentProjects: parsed.recentProjects ?? [],
+        settings: { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) },
+      };
+    } catch {
+      return { version: 1, recentProjects: [], settings: { ...DEFAULT_SETTINGS } };
+    }
+  }
+
+  private save(): void {
+    try {
+      mkdirSync(latticeDir(), { recursive: true });
+      writeFileSync(this.file, JSON.stringify(this.state, null, 2));
+    } catch {
+      // Non-fatal.
+    }
+  }
+
+  getRecentProjects(): ProjectInfo[] {
+    return this.state.recentProjects;
+  }
+
+  addProject(project: ProjectInfo): void {
+    this.state.recentProjects = [
+      project,
+      ...this.state.recentProjects.filter((p) => p.path !== project.path),
+    ].slice(0, 20);
+    this.save();
+  }
+
+  removeProject(path: string): void {
+    this.state.recentProjects = this.state.recentProjects.filter((p) => p.path !== path);
+    this.save();
+  }
+
+  getSettings(): AppSettings {
+    return this.state.settings;
+  }
+
+  updateSettings(patch: Partial<AppSettings>): AppSettings {
+    this.state.settings = { ...this.state.settings, ...patch };
+    this.save();
+    return this.state.settings;
+  }
+}
+
+/** Returns a stable project id derived from the absolute path. */
+export function projectIdForPath(path: string): string {
+  // Simple deterministic hash (FNV-1a) of the path.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < path.length; i++) {
+    h ^= path.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return "proj-" + (h >>> 0).toString(16).padStart(8, "0");
+}
+
+export function isGitRepo(path: string): boolean {
+  return existsSync(join(path, ".git"));
+}
