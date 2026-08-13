@@ -1,16 +1,29 @@
 # Platform Support
 
-Honest build/runtime status. **BUILD VERIFIED** ≠ **RUNTIME VERIFIED**:
-a CI build succeeding does not mean the app has been run on that platform.
+Honest build/runtime status. **BUILD VERIFIED** ≠ **RUNTIME VERIFIED** ≠
+**DEVICE VERIFIED** ≠ **STORE VERIFIED**: a CI build succeeding does not mean
+the app has been run on that platform/device.
+
+## Desktop
 
 | Platform | Architecture | Build | Runtime | Signed | Installer |
 |---|---|---|---|---|---|
-| macOS | arm64 | ✅ VERIFIED | ✅ VERIFIED | ❌ unsigned | DMG |
-| macOS | x64 | ⚠️ CI build only | ❌ not run | ❌ unsigned | DMG |
-| Windows | x64 | ⚠️ CI build only | ❌ not run | ❌ unsigned | NSIS .exe |
-| Windows | arm64 | ❌ not built | ❌ not run | ❌ | — |
-| Linux | x64 | ⚠️ CI build only | ❌ not run | ❌ | AppImage / deb |
-| Linux | aarch64 | ❌ not built | ❌ not run | ❌ | — |
+| macOS — Apple Silicon | arm64 (`aarch64-apple-darwin`) | ✅ VERIFIED | ✅ VERIFIED (local) | ❌ unsigned | DMG |
+| macOS — Intel | x64 (`x86_64-apple-darwin`) | ✅ VERIFIED (cross) | ❌ not run | ❌ unsigned | DMG |
+| Windows x64 | x64 | ✅ VERIFIED | ❌ not run | ❌ unsigned | NSIS .exe |
+| Windows ARM64 | aarch64 (`aarch64-pc-windows-msvc`) | ⚠️ CI cross-compile | ❌ not run | ❌ unsigned | NSIS .exe |
+| Linux x86_64 | x64 | ✅ VERIFIED | ❌ not run | ❌ | AppImage / deb |
+| Linux aarch64 | aarch64 | ⚠️ CI cross-compile | ❌ not run | ❌ | AppImage / deb |
+
+## Mobile
+
+| Platform | Device | Build | Runtime | Signing | Distribution |
+|---|---|---|---|---|---|
+| Android | Phone / Tablet | ⚠️ CI compile check | ❌ not run | ❌ | APK / AAB (planned) |
+| iOS / iPadOS | iPhone / iPad | ⚠️ CI compile check (simulator) | ❌ not run | ❌ | TestFlight / App Store (planned) |
+
+Mobile is a **Remote Runtime Client**: it does not run Pi locally. It connects
+over WSS to a **Lattice Runtime Host** (see `docs/architecture/REMOTE_RUNTIME.md`).
 
 ## Verification matrix
 
@@ -19,23 +32,26 @@ a CI build succeeding does not mean the app has been run on that platform.
 | App launch | ✅ local | ❌ not run |
 | Pi sidecar spawn (bundled) | ✅ local | ❌ not run |
 | Pi RPC handshake | ✅ local | ❌ not run |
-| Open project / list files | ✅ local | ❌ not run |
-| Create session / get state | ✅ local | ❌ not run |
 | Prompt → tool → permission → file change | ✅ local | ❌ not run |
-| Git / worktree | ✅ local | ❌ not run |
-| PTY / terminal | ✅ local | ❌ not run |
 | Crash detection + restart | ✅ local | ❌ not run |
 | Clean exit (no zombie) | ✅ local | ❌ not run |
+| Runtime Host (WSS) | ✅ local (127.0.0.1) | ❌ not run |
+
+## Honest gaps (as of v1.1)
+
+- Only **macOS Apple Silicon** is RUNTIME VERIFIED locally.
+- macOS Intel / Windows x64 / Linux x86_64 are **BUILD VERIFIED** via CI.
+- Windows ARM64 / Linux aarch64 are **cross-compiled** in CI; they have not
+  been run on real ARM hardware (**BUILD VERIFIED at best**).
+- **Mobile has no local build environment** (no full Xcode, no Android SDK/JDK
+  on this machine). Mobile CI runs compile checks on GitHub runners, but no
+  device/simulator RUNTIME VERIFICATION has been performed.
+- No code signing / notarization on any platform yet.
 
 ## Native dependency notes
 
-- **macOS**: WKWebView (system), Bun runtime bundled in Pi sidecar. No extra install.
-- **Windows**: WebView2 (usually preinstalled on Win10/11). Pi sidecar is a `.exe` (Bun-compiled). Node **not** required.
-- **Linux**: requires WebKitGTK 4.1 (`libwebkit2gtk-4.1-dev`), GTK 3, libappindicator, librsvg. Install via the distro package manager. Pi sidecar is a Bun-compiled ELF binary.
-
-## Honest gaps (as of v1.0)
-
-- Only **macOS arm64** is RUNTIME VERIFIED locally.
-- macOS x64 / Windows x64 / Linux x64 are **BUILD VERIFIED** via GitHub Actions only — they have not been launched on real hardware in this repository's verification record.
-- Windows/Linux ARM64 have no CI runner and no build; they are **not supported** in v1.0.
-- No code signing / notarization on any platform yet (see `RELEASE.md`).
+- **macOS**: WKWebView (system), Bun runtime bundled in Pi sidecar.
+- **Windows**: WebView2 (preinstalled on Win10/11). ARM64 uses WebView2 ARM64.
+- **Linux**: requires WebKitGTK 4.1, GTK 3, libappindicator, librsvg.
+- **Android**: WebView (system), requires JDK 17 + Android SDK/NDK to build.
+- **iOS**: WKWebView (system), requires full Xcode to build.

@@ -1,0 +1,79 @@
+name: mobile-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ios-check:
+    name: iOS compile check
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: poc/tauri-app/src-tauri
+
+      - name: Install npm deps
+        run: npm ci --ignore-scripts
+
+      - name: Mobile typecheck + build
+        run: |
+          npm run typecheck
+          npm run build:ui
+
+      - name: Rust compile check (iOS device + simulator)
+        working-directory: poc/tauri-app/src-tauri
+        run: |
+          cargo check --target aarch64-apple-ios
+          cargo check --target aarch64-apple-ios-sim
+
+  android-check:
+    name: Android compile check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Install Linux system deps (Tauri)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libgtk-3-dev
+
+      - name: Install npm deps
+        run: npm ci --ignore-scripts
+
+      - name: Rust compile check (Android)
+        working-directory: poc/tauri-app/src-tauri
+        env:
+          NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+        run: |
+          cargo check --target aarch64-linux-android
+          cargo check --target x86_64-linux-android

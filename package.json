@@ -1,7 +1,7 @@
 {
   "name": "lattice",
   "productName": "Lattice",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A cross-platform desktop coding agent powered by the Pi runtime.",
   "author": "Lattice Contributors",
   "license": "MIT",
