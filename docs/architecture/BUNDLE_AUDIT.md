@@ -79,13 +79,36 @@
 
 ---
 
-## 附：Tauri 迁移的体积预期
+## 附：Tauri 迁移的体积预期（已实测修正）
 
-若迁移 Tauri（Rust + 系统 WebView）：
-- 移除 Electron Framework 275M
-- 保留 Pi Runtime sidecar（Node ~30M + Pi dist ~15M + provider SDK ~50M = ~95M）
-- Rust core + 系统 WebView = ~5-10M
+> **重要修正**：早期 PoC 的 `9.4M` 仅测了 Rust 二进制 + React assets（Tauri 壳体），
+> **未包含 Pi Runtime**。v1.0 完整打包实测如下（macOS arm64）。
 
-预期总体积：**~100-120M**（vs 当前 285M）。
+### v1.0 实测体积（macOS arm64，2025-08）
 
-详见 `TAURI_MIGRATION_DECISION.md`（PoC 完成后）。
+| 组件 | 体积 | 说明 |
+|---|---|---|
+| **Pi sidecar（Bun 编译单文件）** | 73M | 含 Bun 运行时 + Pi 全部代码 + 依赖（3170 模块） |
+| Pi sidecar 资源（theme/export-html/assets/extensions） | 1M | package.json + theme/*.json 等 |
+| **Rust 二进制（Lattice core）** | 9.9M | Workspace/Git/PTY/Permission/Settings/Marketplace |
+| React assets（dist） | 0.8M | Codex-class UI |
+| 图标 + 元数据 | 0.2M | icns/ico/png |
+| **Lattice.app（安装后）** | **84M** | 以上合计 |
+| **DMG 安装包（压缩）** | **29M** | 分发 artifact |
+
+### 对比 Electron 方案
+
+| 方案 | 安装后体积 | 安装包 | 结论 |
+|---|---|---|---|
+| Electron（原） | 285M | ~100M | Chromium 275M 固定成本 |
+| **Tauri + Bun Pi sidecar（v1.0）** | **84M** | **29M** | 系统 WebView + Bun 运行时 |
+
+**结论：Tauri v1.0 安装后体积 84M（vs Electron 285M，-70%），安装包 29M。**
+
+### 体积构成说明（诚实标注）
+
+- **Pi sidecar 73M** 是 Bun 编译单文件，包含完整的 Bun JS 运行时（~50M）+ Pi 代码与依赖（~23M）。
+  这是「不要求用户装 Node」的代价——用 Bun 运行时替代了「系统 Node + node_modules」。
+- Rust 二进制 9.9M 不含调试符号（release profile）。
+- 系统 WebView（WKWebView）不占 bundle 体积（macOS 系统自带）。
+- Windows/Linux 需另计：Windows WebView2 通常系统已带；Linux 需 WebKitGTK（系统依赖）。
