@@ -4,15 +4,15 @@
   "version": "0.1.0",
   "identifier": "dev.lattice.poc",
   "build": {
-    "frontendDist": "../src"
+    "frontendDist": "../dist"
   },
   "app": {
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "poctauri-app",
-        "width": 800,
-        "height": 600
+        "title": "Lattice",
+        "width": 1280,
+        "height": 840
       }
     ],
     "security": {
