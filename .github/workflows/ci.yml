@@ -1,0 +1,87 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: poc/tauri-app/src-tauri
+
+      - name: Install Linux system deps (Tauri)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libgtk-3-dev
+
+      - name: Install npm deps
+        run: npm ci --ignore-scripts
+
+      - name: Typecheck (frontend)
+        run: npm run typecheck
+
+      - name: Frontend unit tests
+        run: npm test
+
+      - name: Rust fmt check
+        working-directory: poc/tauri-app/src-tauri
+        run: cargo fmt --check
+
+      - name: Rust clippy
+        working-directory: poc/tauri-app/src-tauri
+        run: cargo clippy --all-targets
+
+      - name: Rust tests
+        working-directory: poc/tauri-app/src-tauri
+        run: cargo test --release
+
+      - name: Frontend build
+        run: npm run build:ui
+
+      - name: Build Pi sidecar
+        run: bash scripts/build-pi-sidecar.sh
+
+      - name: Rust release build
+        working-directory: poc/tauri-app/src-tauri
+        run: cargo build --release
+
+  pi-e2e:
+    name: pi runtime e2e
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Full E2E (real model)
+        run: node poc/pi-sidecar/full-e2e.mjs
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
