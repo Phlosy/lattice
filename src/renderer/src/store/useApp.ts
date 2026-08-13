@@ -21,6 +21,7 @@ import {
 } from "../lib/session-reducer";
 
 export type View = "chat" | "settings" | "extensions";
+export type PanelKind = "terminal" | "git";
 
 interface PermissionItem extends PermissionRequest {
   requestId: string;
@@ -41,7 +42,8 @@ interface AppStore {
   permissions: PermissionItem[];
   terminals: TerminalMeta[];
   gitStatus: GitStatus | null;
-  showGit: boolean;
+  activePanel: PanelKind | null;
+  panelHeight: number;
 
   init: () => Promise<void>;
   setView: (v: View) => void;
@@ -71,7 +73,9 @@ interface AppStore {
   killTerminal: (id: string) => Promise<void>;
   refreshGit: () => Promise<void>;
   commit: (message: string) => Promise<void>;
-  toggleGit: () => void;
+  togglePanel: (kind: PanelKind) => void;
+  closePanel: () => void;
+  setPanelHeight: (height: number) => void;
 
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
 }
@@ -99,7 +103,8 @@ export const useApp = create<AppStore>((set, get) => ({
   permissions: [],
   terminals: [],
   gitStatus: null,
-  showGit: false,
+  activePanel: null,
+  panelHeight: 280,
 
   init: async () => {
     // Wire event subscriptions once.
@@ -140,6 +145,7 @@ export const useApp = create<AppStore>((set, get) => ({
 
     const theme = settings.theme;
     document.documentElement.dataset.theme = theme;
+    applyAppearance(settings);
   },
 
   setView: (v) => set({ view: v }),
@@ -276,7 +282,7 @@ export const useApp = create<AppStore>((set, get) => ({
     const { currentProject } = get();
     const cwd = currentProject?.path ?? "";
     const meta = (await api().createTerminal(cwd)) as TerminalMeta;
-    set({ terminals: [...get().terminals, meta] });
+    set({ terminals: [...get().terminals, meta], activePanel: "terminal" });
   },
 
   killTerminal: async (id) => {
@@ -302,11 +308,23 @@ export const useApp = create<AppStore>((set, get) => ({
     await get().refreshGit();
   },
 
-  toggleGit: () => set({ showGit: !get().showGit }),
+  togglePanel: (kind) =>
+    set({ activePanel: get().activePanel === kind ? null : kind }),
+
+  closePanel: () => set({ activePanel: null }),
+
+  setPanelHeight: (height) => set({ panelHeight: Math.max(120, Math.min(height, 600)) }),
 
   updateSettings: async (patch) => {
     const settings = (await api().setSettings(patch)) as AppSettings;
     set({ settings });
-    document.documentElement.dataset.theme = settings.theme;
+    applyAppearance(settings);
   },
 }));
+
+function applyAppearance(settings: AppSettings): void {
+  document.documentElement.dataset.theme = settings.theme;
+  // CSS zoom scales the whole UI; Chromium-only (Electron), non-standard but
+  // a pragmatic way to honor the user's font-size preference globally.
+  document.body.style.zoom = String(settings.fontSize / 13);
+}

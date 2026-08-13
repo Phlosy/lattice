@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useApp } from "../store/useApp";
-import type { GitStatus } from "@shared/types";
 import { DiffViewer } from "./DiffViewer";
 
 export function GitPanel() {
@@ -23,66 +22,65 @@ export function GitPanel() {
 
   if (!currentProject || !gitStatus) {
     return (
-      <div className="panel">
-        <div className="panel-head"><span>Git</span></div>
-        <div className="empty">Not a git repository</div>
+      <div className="empty-state" style={{ flex: 1 }}>
+        <div className="icon">⑂</div>
+        <p>Not a git repository.</p>
       </div>
     );
   }
 
   return (
-    <div className="panel">
-      <div className="panel-head">
-        <span>Git</span>
-        <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{gitStatus.branch}</span>
-        <span style={{ fontSize: 12, color: gitStatus.clean ? "var(--success)" : "var(--warning)" }}>
-          {gitStatus.clean ? "clean" : `${gitStatus.files.length} changed`}
-        </span>
-        <div className="spacer" />
-        <button className="btn btn-ghost btn-icon" onClick={() => void refreshGit()}>↻</button>
-      </div>
-      <div className="panel-body" style={{ display: "flex", minHeight: 0 }}>
-        <div style={{ width: 240, overflow: "auto", borderRight: "1px solid var(--border-subtle)" }}>
+    <div className="git-panel">
+      <div className="git-files">
+        <div className="git-files-head">
+          <span className="branch">{gitStatus.branch}</span>
+          <span className={gitStatus.clean ? "clean" : "dirty"}>
+            {gitStatus.clean ? "clean" : `${gitStatus.files.length} changed`}
+          </span>
+        </div>
+        <div className="git-files-list">
           {gitStatus.files.map((f) => (
             <div
               key={f.path}
-              className={`session-item ${selected === f.path ? "active" : ""}`}
+              className={`item ${selected === f.path ? "active" : ""}`}
               onClick={() => setSelected(f.path)}
             >
-              <span style={{ color: f.staged ? "var(--success)" : "var(--warning)", width: 12 }}>
-                {f.index === "?" ? "?" : f.index === " " ? "M" : f.index}
+              <span className={`file-status ${f.index === "?" ? "untracked" : f.index !== " " ? "staged" : "modified"}`}>
+                {f.index === "?" ? "U" : f.index === " " ? "M" : f.index.toUpperCase()}
               </span>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                {f.path}
-              </span>
+              <span className="item-label">{f.path}</span>
             </div>
           ))}
-          {gitStatus.files.length === 0 && <div className="empty">No changes</div>}
-        </div>
-        <div style={{ flex: 1, overflow: "auto", padding: 12 }}>
-          {selected ? (
-            <DiffViewer diff={diff} />
-          ) : (
-            <div className="empty">Select a file to review its diff</div>
-          )}
+          {gitStatus.files.length === 0 && <div className="empty-state">No changes</div>}
         </div>
       </div>
+      <div className="git-diff">
+        {selected ? <DiffViewer diff={diff} /> : <div className="empty-state">Select a file to review changes</div>}
+      </div>
       {!gitStatus.clean && (
-        <div style={{ display: "flex", gap: 8, padding: "8px 12px", borderTop: "1px solid var(--border-subtle)" }}>
+        <div className="git-commit-bar">
           <input
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Commit message"
-            style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-1)", color: "var(--text-primary)" }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && message.trim()) {
+                void commit(message).then(() => {
+                  setMessage("");
+                  setSelected(null);
+                });
+              }
+            }}
           />
           <button
             className="btn btn-sm btn-primary"
             disabled={!message.trim()}
-            onClick={async () => {
-              await commit(message);
-              setMessage("");
-              setSelected(null);
-            }}
+            onClick={() =>
+              void commit(message).then(() => {
+                setMessage("");
+                setSelected(null);
+              })
+            }
           >
             Commit
           </button>
