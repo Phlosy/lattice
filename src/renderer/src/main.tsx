@@ -4,6 +4,7 @@ import App from "./App";
 import type { LatticeApi } from "../../shared/api";
 import { useApp } from "./store/useApp";
 import { createLatticeStub } from "./lattice-stub";
+import { createLatticeTauri } from "./lattice-tauri";
 import "./styles/tokens.css";
 
 // Type declaration for the preload-exposed API.
@@ -14,10 +15,12 @@ declare global {
   }
 }
 
-// In the Tauri shell there is no Electron preload; fall back to a benign stub
-// until the real Tauri invoke bridge is wired (REMOVE_ELECTRON sub-step 2).
+// In the Tauri shell there is no Electron preload. Use the Tauri invoke bridge
+// when __TAURI__ is present, else a benign stub.
 if (!window.lattice) {
-  window.lattice = createLatticeStub();
+  window.lattice = (window as unknown as { __TAURI__?: unknown }).__TAURI__
+    ? createLatticeTauri()
+    : createLatticeStub();
 }
 
 // Expose the store so the visual-regression driver can reach UI state.
