@@ -34,12 +34,11 @@ jobs:
           npm run build:ui
           mkdir -p poc/tauri-app/src-tauri/pi-sidecar
 
-      - name: Configure Xcode (full Xcode, not CommandLineTools)
+      - name: Diagnose Xcode toolchain
         run: |
-          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-          echo "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer" >> "$GITHUB_ENV"
+          xcode-select -p
           xcodebuild -version
-          xcrun --show-sdk-path --sdk iphoneos
+          xcrun --show-sdk-path --sdk iphoneos 2>&1 || echo "iphoneos SDK not found"
 
       - name: Rust compile check (iOS device + simulator)
         working-directory: poc/tauri-app/src-tauri
@@ -48,12 +47,9 @@ jobs:
           cargo check --target aarch64-apple-ios --message-format=short > /tmp/ios.log 2>&1
           RC=$?
           cat /tmp/ios.log
-          {
-            echo "## iOS cargo check (exit $RC)"
-            echo '```'
-            tail -50 /tmp/ios.log
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          if [ $RC -ne 0 ]; then
+            echo "::error file=ios-check::$(tail -5 /tmp/ios.log | tr '\n' ' ' | head -c 3000)"
+          fi
           exit $RC
 
   android-check:
