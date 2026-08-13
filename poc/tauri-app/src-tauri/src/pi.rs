@@ -4,14 +4,40 @@
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 
-use tauri::{Emitter, State};
+use tauri::{Emitter, Manager, State};
 
 pub const PI_ENTRY: &str = "node_modules/@earendil-works/pi-coding-agent/dist/cli.js";
 pub const SESSION_DIR: &str = "/tmp/pi-tauri-sessions";
+const EXTENSION_REL: &str = "poc/tauri-app/extensions/permission-gate.ts";
+
+/// Platform directory used by scripts/build-pi-sidecar.sh.
+fn platform_dir() -> &'static str {
+    match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("macos", "aarch64") => "darwin-arm64",
+        ("macos", "x86_64") => "darwin-x64",
+        ("linux", "x86_64") => "linux-x64",
+        ("linux", "aarch64") => "linux-arm64",
+        ("windows", "x86_64") => "windows-x64",
+        ("windows", "aarch64") => "windows-arm64",
+        _ => "unknown",
+    }
+}
+
+fn pi_bin_name() -> &'static str {
+    if cfg!(windows) { "pi.exe" } else { "pi" }
+}
+
+/// Dev-mode bundled sidecar at <lattice>/release/pi-sidecar/<platform>/pi.
+fn dev_bundled_pi() -> Option<PathBuf> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..").canonicalize().ok()?;
+    let p = root.join("release").join("pi-sidecar").join(platform_dir()).join(pi_bin_name());
+    p.exists().then_some(p)
+}
 
 pub struct PiShared {
     child: Mutex<Option<Child>>,
@@ -35,23 +61,41 @@ pub fn ensure_spawned(app: &tauri::AppHandle, shared: &PiShared) -> Result<(), S
         return Ok(());
     }
 
-    let mut child = Command::new("node")
-        .arg(PI_ENTRY)
+    // Resolve the sidecar: packaged resource → dev bundled → node fallback.
+    let resource_bin = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|r| r.join("pi-sidecar").join(platform_dir()).join(pi_bin_name()))
+        .filter(|p| p.exists());
+
+    let (mut child, extension) = if let Some(bin) = resource_bin.or_else(dev_bundled_pi) {
+        let dir = bin.parent().map(|d| d.to_path_buf()).unwrap_or_default();
+        let ext = dir.join("extensions").join("permission-gate.ts");
+        let mut c = Command::new(&bin);
+        c.current_dir("../../.."); // lattice workspace root (matches node fallback)
+        (c, ext.to_string_lossy().to_string())
+    } else {
+        let mut c = Command::new("node");
+        c.arg(PI_ENTRY).current_dir("../../.."); // lattice workspace root
+        (c, EXTENSION_REL.to_string())
+    };
+
+    let mut child = child
         .arg("--mode")
         .arg("rpc")
         .arg("--session-dir")
         .arg(SESSION_DIR)
         .arg("--approve")
         .arg("--extension")
-        .arg("poc/tauri-app/extensions/permission-gate.ts")
-        .current_dir("../../..") // lattice workspace root
+        .arg(&extension)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()
         .map_err(|e| format!("failed to spawn Pi: {e}"))?;
 
-    eprintln!("[pi] spawned pid={}", child.id());
+    eprintln!("[pi] spawned pid={} ext={}", child.id(), extension);
 
     let stdout = child.stdout.take().ok_or("no stdout")?;
     let app_handle = app.clone();

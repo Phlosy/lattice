@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Build the Pi Runtime as a standalone sidecar binary (Bun-compiled, no Node
+# or node_modules required at runtime). Produces release/pi-sidecar/<platform>/
+# containing the binary plus the resource files Pi reads from next to its
+# executable (package.json, theme/, export-html/, assets/).
+#
+# Usage:
+#   scripts/build-pi-sidecar.sh [platform]
+#
+# platform: darwin-arm64 | darwin-x64 | linux-x64 | linux-arm64 | windows-x64 | windows-arm64
+# (defaults to the current host platform)
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PI_PKG="$ROOT/node_modules/@earendil-works/pi-coding-agent"
+
+# --- resolve platform -------------------------------------------------------
+PLATFORM="${1:-}"
+if [[ -z "$PLATFORM" ]]; then
+  case "$(uname -s)-$(uname -m)" in
+    Darwin-arm64) PLATFORM=darwin-arm64 ;;
+    Darwin-x86_64) PLATFORM=darwin-x64 ;;
+    Linux-x86_64) PLATFORM=linux-x64 ;;
+    Linux-aarch64|Linux-arm64) PLATFORM=linux-arm64 ;;
+    MINGW*-x86_64|MSYS*-x86_64|CYGWIN*-x86_64) PLATFORM=windows-x64 ;;
+    *) echo "unknown host platform: $(uname -s)-$(uname -m)"; exit 1 ;;
+  esac
+fi
+
+# --- platform → bun target + binary name ------------------------------------
+case "$PLATFORM" in
+  darwin-arm64)  TARGET=bun-darwin-arm64;          BIN=pi ;;
+  darwin-x64)    TARGET=bun-darwin-x64-baseline;   BIN=pi ;;
+  linux-x64)     TARGET=bun-linux-x64-baseline;    BIN=pi ;;
+  linux-arm64)   TARGET=bun-linux-arm64;           BIN=pi ;;
+  windows-x64)   TARGET=bun-windows-x64-baseline;  BIN=pi.exe ;;
+  windows-arm64) TARGET=bun-windows-arm64;         BIN=pi.exe ;;
+  *) echo "invalid platform: $PLATFORM"; exit 1 ;;
+esac
+
+OUT="$ROOT/release/pi-sidecar/$PLATFORM"
+
+if [[ ! -f "$PI_PKG/dist/bun/cli.js" ]]; then
+  echo "error: Pi bun entry not found at $PI_PKG/dist/bun/cli.js" >&2
+  exit 1
+fi
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "error: bun is required (npm i -g bun)" >&2
+  exit 1
+fi
+
+echo "==> Building Pi sidecar for $PLATFORM (target $TARGET)..."
+rm -rf "$OUT"
+mkdir -p "$OUT"
+
+# Cross-compilation from a non-matching host is not supported by this script;
+# native/dependency alignment is enforced at release time by the CI matrix.
+(cd "$PI_PKG" && bun build --compile --no-compile-autoload-bunfig \
+  --target="$TARGET" ./dist/bun/cli.js --outfile "$OUT/$BIN")
+
+# --- copy resources Pi reads from next to its executable ---------------------
+echo "==> Copying runtime resources..."
+cp "$PI_PKG/package.json" "$OUT/package.json"
+mkdir -p "$OUT/theme"
+cp "$PI_PKG/dist/modes/interactive/theme/"*.json "$OUT/theme/" 2>/dev/null || true
+cp -R "$PI_PKG/dist/core/export-html" "$OUT/export-html" 2>/dev/null || true
+cp -R "$PI_PKG/dist/modes/interactive/assets" "$OUT/assets" 2>/dev/null || true
+
+# Bundle the permission-gate extension next to the binary so the packaged app
+# can load it without a dev checkout.
+mkdir -p "$OUT/extensions"
+cp "$ROOT/poc/tauri-app/extensions/permission-gate.ts" "$OUT/extensions/" 2>/dev/null || true
+
+echo "==> Done: $OUT"
+du -sh "$OUT/$BIN" | awk '{print "    binary: " $1}'
+echo "    total:  $(du -sh "$OUT" | awk '{print $1}')"
