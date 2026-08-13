@@ -21,6 +21,35 @@ export default function App() {
     void init();
   }, [init]);
 
+  // Global keyboard shortcuts.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      const s = useApp.getState();
+      if (e.key === "Escape") {
+        if (s.permissions.length > 0) {
+          s.dismissPermission(s.permissions[0].requestId);
+        } else if (s.activePanel) {
+          s.closePanel();
+        } else if (s.transcript.running) {
+          void s.abort();
+        }
+        return;
+      }
+      if (mod && e.key === ",") {
+        e.preventDefault();
+        s.setView(s.view === "settings" ? "chat" : "settings");
+        return;
+      }
+      if (mod && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   if (!ready) {
     return <div className="boot">Lattice</div>;
   }

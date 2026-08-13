@@ -62,6 +62,7 @@ function MessageItem({ message }: { message: AgentMessage }) {
 export function ThreadView() {
   const transcript = useApp((s) => s.transcript);
   const activeSessionId = useApp((s) => s.activeSessionId);
+  const prompt = useApp((s) => s.prompt);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -76,6 +77,10 @@ export function ThreadView() {
         <p>Create a session to start a coding task with the agent.</p>
       </div>
     );
+  }
+
+  if (transcript.messages.length === 0 && !transcript.running) {
+    return <EmptySession />;
   }
 
   return (
@@ -105,6 +110,31 @@ export function ThreadView() {
           </div>
         )}
         <div ref={endRef} />
+      </div>
+    </div>
+  );
+}
+
+const SUGGESTIONS = [
+  "Summarize this project",
+  "Find and fix bugs",
+  "Write unit tests",
+  "Explain the architecture",
+];
+
+function EmptySession() {
+  const prompt = useApp((s) => s.prompt);
+  return (
+    <div className="empty-state empty-session">
+      <div className="icon">Λ</div>
+      <h2>What should we work on?</h2>
+      <p>Describe a coding task, or start from one of these.</p>
+      <div className="suggestions">
+        {SUGGESTIONS.map((s) => (
+          <button key={s} className="suggestion" onClick={() => void prompt(s)}>
+            {s}
+          </button>
+        ))}
       </div>
     </div>
   );

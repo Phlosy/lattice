@@ -1240,6 +1240,40 @@ kbd {
   padding: var(--sp-2) 0;
 }
 
+/* Empty session suggestions */
+.empty-session .icon {
+  width: 56px;
+  height: 56px;
+  font-size: var(--fs-24);
+  background: var(--accent-subtle);
+  border-color: transparent;
+  color: var(--accent);
+}
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  max-width: 460px;
+}
+.suggestion {
+  padding: 7px var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: var(--fs-13);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+.suggestion:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
 /* ---- Git panel ------------------------------------------------------------------ */
 .git-panel {
   flex: 1;
