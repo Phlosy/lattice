@@ -24,7 +24,8 @@ fn session_roundtrip() {
     assert_eq!(list[0].cwd, "/tmp/proj");
     assert_eq!(list[0].message_count, 2);
 
-    let msgs = poctauri_app_lib::session::session_messages(file.to_string_lossy().to_string()).unwrap();
+    let msgs =
+        poctauri_app_lib::session::session_messages(file.to_string_lossy().to_string()).unwrap();
     assert_eq!(msgs.len(), 2);
     assert_eq!(msgs[0]["role"], "user");
     assert_eq!(msgs[1]["role"], "assistant");

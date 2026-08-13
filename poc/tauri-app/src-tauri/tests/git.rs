@@ -17,7 +17,11 @@ fn scratch() -> PathBuf {
 }
 
 fn run(dir: &PathBuf, args: &[&str]) -> String {
-    let out = Command::new("git").args(args).current_dir(dir).output().unwrap();
+    let out = Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .unwrap();
     String::from_utf8_lossy(&out.stdout).to_string()
 }
 
@@ -29,7 +33,11 @@ fn git_roundtrip() {
     // clean initial status
     let st = poctauri_app_lib::git::git_status(path.clone()).unwrap();
     assert!(st.clean, "initial should be clean");
-    assert!(st.branch == "main" || st.branch == "master", "branch={}", st.branch);
+    assert!(
+        st.branch == "main" || st.branch == "master",
+        "branch={}",
+        st.branch
+    );
 
     // modify a.txt (add 1 line) + create untracked b.txt
     fs::write(dir.join("a.txt"), "hello\nworld\nmore\n").unwrap();
@@ -37,8 +45,22 @@ fn git_roundtrip() {
 
     let st = poctauri_app_lib::git::git_status(path.clone()).unwrap();
     assert!(!st.clean);
-    assert!(st.files.iter().any(|f| f.path == "a.txt" && f.status == "M"), "files: {:?}", st.files.iter().map(|f| (&f.path, &f.status)).collect::<Vec<_>>());
-    assert!(st.files.iter().any(|f| f.path == "b.txt" && f.status == "?"), "untracked b.txt expected");
+    assert!(
+        st.files
+            .iter()
+            .any(|f| f.path == "a.txt" && f.status == "M"),
+        "files: {:?}",
+        st.files
+            .iter()
+            .map(|f| (&f.path, &f.status))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        st.files
+            .iter()
+            .any(|f| f.path == "b.txt" && f.status == "?"),
+        "untracked b.txt expected"
+    );
 
     // diff for a.txt contains the added line
     let diff = poctauri_app_lib::git::git_diff(path.clone(), "a.txt".into()).unwrap();

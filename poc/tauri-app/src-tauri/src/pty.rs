@@ -25,10 +25,16 @@ fn default_shell() -> String {
 }
 
 #[tauri::command]
-pub fn pty_spawn(app: AppHandle, state: State<PtyState>, cwd: Option<String>) -> Result<String, String> {
+pub fn pty_spawn(
+    app: AppHandle,
+    state: State<PtyState>,
+    cwd: Option<String>,
+) -> Result<String, String> {
     let id = format!(
         "pty-{}",
-        state.counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        state
+            .counter
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     );
 
     let pty_system = native_pty_system();
@@ -61,7 +67,10 @@ pub fn pty_spawn(app: AppHandle, state: State<PtyState>, cwd: Option<String>) ->
                 Ok(0) => break,
                 Ok(n) => {
                     let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                    let _ = app_handle.emit("pty-data", serde_json::json!({ "id": id_clone, "data": data }));
+                    let _ = app_handle.emit(
+                        "pty-data",
+                        serde_json::json!({ "id": id_clone, "data": data }),
+                    );
                 }
                 Err(_) => break,
             }
@@ -87,7 +96,10 @@ pub fn pty_spawn(app: AppHandle, state: State<PtyState>, cwd: Option<String>) ->
 pub fn pty_write(state: State<PtyState>, id: String, data: String) -> Result<(), String> {
     let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
     if let Some(session) = sessions.get_mut(&id) {
-        session.writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+        session
+            .writer
+            .write_all(data.as_bytes())
+            .map_err(|e| e.to_string())?;
         session.writer.flush().map_err(|e| e.to_string())?;
     }
     Ok(())

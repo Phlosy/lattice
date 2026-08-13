@@ -5,9 +5,9 @@
 use std::fs;
 use std::path::Path;
 
+use crate::pi::{ensure_spawned, pi_request, PiShared};
 use serde::Serialize;
 use tauri::{AppHandle, State};
-use crate::pi::{ensure_spawned, pi_request, PiShared};
 
 #[derive(Serialize, Debug)]
 pub struct SessionMeta {
@@ -51,13 +51,19 @@ pub fn session_messages(file: String) -> Result<Vec<serde_json::Value>, String> 
 }
 
 #[tauri::command]
-pub fn get_session_state(app: AppHandle, shared: State<std::sync::Arc<PiShared>>) -> Result<serde_json::Value, String> {
+pub fn get_session_state(
+    app: AppHandle,
+    shared: State<std::sync::Arc<PiShared>>,
+) -> Result<serde_json::Value, String> {
     ensure_spawned(&app, &shared)?;
     pi_request(&shared, serde_json::json!({ "type": "get_state" }))
 }
 
 #[tauri::command]
-pub fn create_session(app: AppHandle, shared: State<std::sync::Arc<PiShared>>) -> Result<serde_json::Value, String> {
+pub fn create_session(
+    app: AppHandle,
+    shared: State<std::sync::Arc<PiShared>>,
+) -> Result<serde_json::Value, String> {
     ensure_spawned(&app, &shared)?;
     pi_request(&shared, serde_json::json!({ "type": "new_session" }))?;
     // Return the fresh session's state (includes sessionId) so the frontend

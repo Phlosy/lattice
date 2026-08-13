@@ -63,7 +63,9 @@ fn spawn_bundled(bin: &std::path::Path) -> std::process::Child {
 }
 
 fn wait_for_state(stdout: &mut impl BufRead, stdin: &mut impl Write) {
-    stdin.write_all(b"{\"type\":\"get_state\",\"id\":\"t\"}\n").unwrap();
+    stdin
+        .write_all(b"{\"type\":\"get_state\",\"id\":\"t\"}\n")
+        .unwrap();
     stdin.flush().unwrap();
     let mut line = String::new();
     for _ in 0..100 {

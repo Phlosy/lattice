@@ -2,15 +2,15 @@
 // provides workspace/git/pty/settings/marketplace/session/model commands and
 // forwards agent events to the React (webview) frontend.
 
-pub mod pi;
-pub mod workspace;
 pub mod git;
-pub mod pty;
-pub mod settings;
 pub mod marketplace;
-pub mod session;
 pub mod model;
+pub mod pi;
 pub mod projects;
+pub mod pty;
+pub mod session;
+pub mod settings;
+pub mod workspace;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

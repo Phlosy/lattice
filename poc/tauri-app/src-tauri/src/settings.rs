@@ -22,7 +22,9 @@ impl Default for Settings {
 
 fn settings_path() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    PathBuf::from(home).join(".lattice").join("tauri-settings.json")
+    PathBuf::from(home)
+        .join(".lattice")
+        .join("tauri-settings.json")
 }
 
 #[tauri::command]

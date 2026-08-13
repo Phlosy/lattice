@@ -22,13 +22,23 @@ fn workspace_filesystem_roundtrip() {
     // open_project
     let info = poctauri_app_lib::workspace::open_project(path.clone()).unwrap();
     assert!(info.path == path);
-    assert!(info.name.starts_with("lattice-ws-test"), "name={}", info.name);
+    assert!(
+        info.name.starts_with("lattice-ws-test"),
+        "name={}",
+        info.name
+    );
 
     // list_files (should skip node_modules, return relative paths)
     let files = poctauri_app_lib::workspace::list_files(path.clone(), 100).unwrap();
     assert!(files.contains(&"README.md".to_string()), "files: {files:?}");
-    assert!(files.contains(&"src/main.rs".to_string()), "files: {files:?}");
-    assert!(!files.iter().any(|f| f.contains("node_modules")), "should ignore node_modules");
+    assert!(
+        files.contains(&"src/main.rs".to_string()),
+        "files: {files:?}"
+    );
+    assert!(
+        !files.iter().any(|f| f.contains("node_modules")),
+        "should ignore node_modules"
+    );
 
     // read_file
     let content = poctauri_app_lib::workspace::read_file(format!("{path}/README.md")).unwrap();

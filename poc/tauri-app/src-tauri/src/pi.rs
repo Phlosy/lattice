@@ -71,7 +71,11 @@ fn platform_dir() -> &'static str {
 }
 
 fn pi_bin_name() -> &'static str {
-    if cfg!(windows) { "pi.exe" } else { "pi" }
+    if cfg!(windows) {
+        "pi.exe"
+    } else {
+        "pi"
+    }
 }
 
 /// Dev-mode bundled sidecar at <src-tauri>/pi-sidecar/<platform>/pi.
@@ -142,7 +146,11 @@ fn spawn_pi(app: &tauri::AppHandle, shared: &Arc<PiShared>) -> Result<(), String
         .path()
         .resource_dir()
         .ok()
-        .map(|r| r.join("pi-sidecar").join(platform_dir()).join(pi_bin_name()))
+        .map(|r| {
+            r.join("pi-sidecar")
+                .join(platform_dir())
+                .join(pi_bin_name())
+        })
         .filter(|p| p.exists());
 
     let (mut cmd, extension) = if let Some(bin) = resource_bin.or_else(dev_bundled_pi) {
@@ -293,7 +301,10 @@ pub fn pi_send(shared: &Arc<PiShared>, command: &serde_json::Value) -> Result<()
 }
 
 /// Request/response command (get_state/get_available_models/set_model/…).
-pub fn pi_request(shared: &Arc<PiShared>, command: serde_json::Value) -> Result<serde_json::Value, String> {
+pub fn pi_request(
+    shared: &Arc<PiShared>,
+    command: serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let id = format!("req_{}", shared.counter.fetch_add(1, Ordering::SeqCst));
     let (tx, rx) = mpsc::channel();
     shared
@@ -324,23 +335,44 @@ pub fn pi_request(shared: &Arc<PiShared>, command: serde_json::Value) -> Result<
 type SharedState<'a> = State<'a, Arc<PiShared>>;
 
 #[tauri::command]
-pub fn pi_prompt(app: tauri::AppHandle, shared: SharedState, text: String) -> Result<String, String> {
+pub fn pi_prompt(
+    app: tauri::AppHandle,
+    shared: SharedState,
+    text: String,
+) -> Result<String, String> {
     ensure_spawned(&app, &shared)?;
-    pi_send(&shared, &serde_json::json!({ "type": "prompt", "message": text }))?;
+    pi_send(
+        &shared,
+        &serde_json::json!({ "type": "prompt", "message": text }),
+    )?;
     Ok("prompt sent".into())
 }
 
 #[tauri::command]
-pub fn pi_steer(app: tauri::AppHandle, shared: SharedState, message: String) -> Result<String, String> {
+pub fn pi_steer(
+    app: tauri::AppHandle,
+    shared: SharedState,
+    message: String,
+) -> Result<String, String> {
     ensure_spawned(&app, &shared)?;
-    pi_send(&shared, &serde_json::json!({ "type": "steer", "message": message }))?;
+    pi_send(
+        &shared,
+        &serde_json::json!({ "type": "steer", "message": message }),
+    )?;
     Ok("steer sent".into())
 }
 
 #[tauri::command]
-pub fn pi_follow_up(app: tauri::AppHandle, shared: SharedState, message: String) -> Result<String, String> {
+pub fn pi_follow_up(
+    app: tauri::AppHandle,
+    shared: SharedState,
+    message: String,
+) -> Result<String, String> {
     ensure_spawned(&app, &shared)?;
-    pi_send(&shared, &serde_json::json!({ "type": "follow_up", "message": message }))?;
+    pi_send(
+        &shared,
+        &serde_json::json!({ "type": "follow_up", "message": message }),
+    )?;
     Ok("follow_up sent".into())
 }
 

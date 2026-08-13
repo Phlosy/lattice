@@ -24,7 +24,10 @@ fn write_state(value: &serde_json::Value) {
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
-    let _ = fs::write(&path, serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".into()));
+    let _ = fs::write(
+        &path,
+        serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".into()),
+    );
 }
 
 fn now_ms() -> u64 {
@@ -52,7 +55,10 @@ pub fn record_project(path: &str) {
     let kind = kind_of(path);
 
     let mut state = read_state();
-    let mut recent = state["recentProjects"].as_array().cloned().unwrap_or_default();
+    let mut recent = state["recentProjects"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
     recent.retain(|p| p["path"] != path);
     recent.insert(
         0,
@@ -72,13 +78,19 @@ pub fn record_project(path: &str) {
 #[tauri::command]
 pub fn get_projects() -> Vec<serde_json::Value> {
     let state = read_state();
-    state["recentProjects"].as_array().cloned().unwrap_or_default()
+    state["recentProjects"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
 }
 
 #[tauri::command]
 pub fn remove_project(path: String) -> Result<(), String> {
     let mut state = read_state();
-    let mut recent = state["recentProjects"].as_array().cloned().unwrap_or_default();
+    let mut recent = state["recentProjects"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
     recent.retain(|p| p["path"] != path);
     state["recentProjects"] = serde_json::json!(recent);
     write_state(&state);

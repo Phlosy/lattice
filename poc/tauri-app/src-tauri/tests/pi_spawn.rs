@@ -55,7 +55,10 @@ fn rust_spawns_pi_and_exchanges_rpc() {
     for _ in 0..50 {
         let line = read_line(&mut pi);
         if line.contains("\"command\":\"get_state\"") {
-            assert!(line.contains("\"sessionId\""), "get_state should return sessionId: {line}");
+            assert!(
+                line.contains("\"sessionId\""),
+                "get_state should return sessionId: {line}"
+            );
             got_state = true;
             break;
         }
@@ -63,7 +66,11 @@ fn rust_spawns_pi_and_exchanges_rpc() {
     assert!(got_state, "did not receive get_state response");
 
     // Send prompt, expect agent_start + text_delta streaming
-    writeln!(pi.stdin, r#"{{"type":"prompt","message":"reply with the word ok"}}"#).expect("write");
+    writeln!(
+        pi.stdin,
+        r#"{{"type":"prompt","message":"reply with the word ok"}}"#
+    )
+    .expect("write");
     pi.stdin.flush().expect("flush");
 
     let mut saw_agent_start = false;
@@ -80,7 +87,10 @@ fn rust_spawns_pi_and_exchanges_rpc() {
             break;
         }
     }
-    assert!(saw_agent_start, "did not see agent_start (prompt not accepted/streaming)");
+    assert!(
+        saw_agent_start,
+        "did not see agent_start (prompt not accepted/streaming)"
+    );
     assert!(saw_text, "did not see text_delta (no streaming)");
 
     let _ = pi.child.kill();

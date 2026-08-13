@@ -8,8 +8,19 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 const IGNORED_DIRS: &[&str] = &[
-    "node_modules", ".git", "dist", "out", "build", "release", "target",
-    ".next", ".cache", "coverage", ".venv", "__pycache__", ".DS_Store",
+    "node_modules",
+    ".git",
+    "dist",
+    "out",
+    "build",
+    "release",
+    "target",
+    ".next",
+    ".cache",
+    "coverage",
+    ".venv",
+    "__pycache__",
+    ".DS_Store",
 ];
 
 #[derive(Serialize)]
@@ -64,7 +75,14 @@ pub fn write_file(path: String, content: String) -> Result<(), String> {
     Ok(())
 }
 
-fn walk(root: &Path, dir: &Path, out: &mut Vec<String>, max: usize, depth: usize, max_depth: usize) {
+fn walk(
+    root: &Path,
+    dir: &Path,
+    out: &mut Vec<String>,
+    max: usize,
+    depth: usize,
+    max_depth: usize,
+) {
     if depth > max_depth || out.len() >= max {
         return;
     }

@@ -146,7 +146,10 @@ pub fn git_worktrees(path: String) -> Result<Vec<Worktree>, String> {
         }
     }
     if !current_path.is_empty() {
-        worktrees.push(Worktree { path: current_path, branch: current_branch });
+        worktrees.push(Worktree {
+            path: current_path,
+            branch: current_branch,
+        });
     }
     Ok(worktrees)
 }

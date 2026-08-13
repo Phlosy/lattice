@@ -21,7 +21,11 @@ fn run_pi(args: &[&str]) -> Result<String, String> {
     let stdout = String::from_utf8_lossy(&out.stdout).to_string();
     let stderr = String::from_utf8_lossy(&out.stderr).to_string();
     if !out.status.success() && stdout.is_empty() {
-        return Err(if stderr.is_empty() { "pi command failed".into() } else { stderr });
+        return Err(if stderr.is_empty() {
+            "pi command failed".into()
+        } else {
+            stderr
+        });
     }
     Ok(stdout)
 }
@@ -55,14 +59,20 @@ fn settings_path() -> PathBuf {
 }
 
 fn package_sources(value: &serde_json::Value) -> Vec<String> {
-    let packages = value.get("packages").and_then(|p| p.as_array()).cloned().unwrap_or_default();
+    let packages = value
+        .get("packages")
+        .and_then(|p| p.as_array())
+        .cloned()
+        .unwrap_or_default();
     packages
         .iter()
         .filter_map(|p| {
             if let Some(s) = p.as_str() {
                 Some(s.to_string())
             } else {
-                p.get("source").and_then(|s| s.as_str()).map(|s| s.to_string())
+                p.get("source")
+                    .and_then(|s| s.as_str())
+                    .map(|s| s.to_string())
             }
         })
         .collect()
@@ -75,7 +85,8 @@ pub fn ext_list() -> Result<Vec<InstalledPackage>, String> {
         return Ok(vec![]);
     }
     let content = fs::read_to_string(&path).map_err(|e| format!("read settings: {e}"))?;
-    let value: serde_json::Value = serde_json::from_str(&content).map_err(|e| format!("parse settings: {e}"))?;
+    let value: serde_json::Value =
+        serde_json::from_str(&content).map_err(|e| format!("parse settings: {e}"))?;
     let out = package_sources(&value)
         .into_iter()
         .map(|source| {
