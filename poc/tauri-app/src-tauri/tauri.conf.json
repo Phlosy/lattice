@@ -30,7 +30,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../../../release/pi-sidecar"
+      "pi-sidecar"
     ]
   }
 }

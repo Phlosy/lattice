@@ -32,10 +32,12 @@ fn pi_bin_name() -> &'static str {
     if cfg!(windows) { "pi.exe" } else { "pi" }
 }
 
-/// Dev-mode bundled sidecar at <lattice>/release/pi-sidecar/<platform>/pi.
+/// Dev-mode bundled sidecar at <src-tauri>/pi-sidecar/<platform>/pi.
 fn dev_bundled_pi() -> Option<PathBuf> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..").canonicalize().ok()?;
-    let p = root.join("release").join("pi-sidecar").join(platform_dir()).join(pi_bin_name());
+    let p = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("pi-sidecar")
+        .join(platform_dir())
+        .join(pi_bin_name());
     p.exists().then_some(p)
 }
 
