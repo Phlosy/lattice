@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "poctauri-app",
-  "version": "0.1.0",
-  "identifier": "dev.lattice.poc",
+  "productName": "Lattice",
+  "version": "1.0.0",
+  "identifier": "dev.lattice.desktop",
   "build": {
     "frontendDist": "../dist"
   },
