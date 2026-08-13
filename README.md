@@ -8,11 +8,13 @@ sessions, prompt a local agent, watch it reason and call tools, review diffs,
 and commit — all with a clean, keyboard-friendly interface benchmarked against
 OpenAI's Codex Desktop (but with its own brand and design system).
 
-Under the hood, Lattice **does not reimplement the agent runtime**. It embeds
+Under the hood, Lattice **does not reimplement the agent runtime**. It runs
 [Pi](https://github.com/earendil-works/pi) (`@earendil-works/pi-coding-agent`)
-through a thin `RuntimeAdapter`, so every capability Pi already has — the agent
-loop, tool calling, streaming, sessions, skills, prompt templates, extensions,
-models/providers — is reused directly.
+as a standalone **RPC sidecar** (a Bun-compiled binary, bundled with the app —
+no Node / npm / dev environment required). The desktop core is **Rust / Tauri**;
+the product UI is **React**. Every capability Pi already has — the agent loop,
+tool calling, streaming, sessions, skills, extensions, models/providers — is
+reused directly over JSONL RPC.
 
 ## Highlights
 
@@ -23,7 +25,7 @@ models/providers — is reused directly.
 - **Permissions** — Codex-style approval for mutating tools (`bash`, `write`,
   `edit`), with per-project "always allow" / "deny" decisions.
 - **Git & diff** — status, per-file diff review, commit; git worktrees supported.
-- **Terminal** — a real PTY (node-pty + xterm.js) per project.
+- **Terminal** — a real PTY (Rust `portable-pty` + xterm.js) per project.
 - **Model & reasoning** — provider/model picker and thinking-level control,
   backed by Pi's `ModelRuntime` (API keys and OAuth subscriptions).
 - **Extension marketplace** — install Pi packages (extensions, skills, themes,
@@ -34,8 +36,8 @@ models/providers — is reused directly.
 ## Quick start
 
 ```bash
-npm install                 # installs deps + rebuilds node-pty for Electron
-npm run dev                 # launch with HMR
+npm ci --ignore-scripts     # install deps
+npm run dev                 # launch with Tauri (Rust + React)
 ```
 
 Then open a folder, authenticate a provider (Settings → add an API key, or use
@@ -46,14 +48,14 @@ create a session, and start prompting.
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | electron-vite dev (renderer HMR) |
-| `npm run build` | typecheck + build main/preload/renderer |
-| `npm run typecheck` | `tsc --noEmit` for node + web |
-| `npm run test` | vitest (unit + integration + E2E) |
-| `npm run package:mac` | build + `.dmg` / `.app` |
-| `npm run package:win` | build + NSIS `.exe` |
-| `npm run package:linux` | build + `.AppImage` / `.deb` |
-| `npm run rebuild` | rebuild native modules for Electron |
+| `npm run dev` | Tauri dev (Rust core + React HMR) |
+| `npm run build` | React build + Pi sidecar + Tauri bundle |
+| `npm run build:ui` | React → `poc/tauri-app/dist` |
+| `npm run build:sidecar` | Bun-compile Pi sidecar |
+| `npm run typecheck` | `tsc --noEmit` (frontend) |
+| `npm run test` | vitest (frontend unit tests) |
+| `npm run check:version` | version consistency check |
+| `npm run release:check` | release gate (pre-tag) |
 
 ## Documentation
 
@@ -61,6 +63,9 @@ create a session, and start prompting.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — project layout and development workflow.
 - [docs/BUILD.md](docs/BUILD.md) — building, packaging, and CI.
 - [docs/EXTENSION.md](docs/EXTENSION.md) — the extension marketplace and registry protocol.
+- [docs/RELEASE.md](docs/RELEASE.md) — release process, signing status, smoke test.
+- [docs/PLATFORM_SUPPORT.md](docs/PLATFORM_SUPPORT.md) — per-platform build/runtime status.
+- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common issues and fixes.
 
 ## Brand & design
 
