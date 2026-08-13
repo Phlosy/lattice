@@ -5,7 +5,7 @@ import { ModelPicker } from "./ModelPicker";
 
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
-export function TopBar() {
+export function TopBar({ onMenu }: { onMenu?: () => void }) {
   const sessionState = useApp((s) => s.sessionState);
   const t = useT();
   const currentProject = useApp((s) => s.currentProject);
@@ -21,6 +21,11 @@ export function TopBar() {
 
   return (
     <div className="topbar">
+      {onMenu && (
+        <button className="icon-btn topbar-menu" onClick={onMenu} aria-label="Menu">
+          ☰
+        </button>
+      )}
       <div className="topbar-context">
         {currentProject && (
           <>

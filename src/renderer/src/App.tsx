@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "./store/useApp";
+import { useLayoutClass } from "./lib/layout";
 import { Sidebar } from "./components/Sidebar";
 import { ThreadView } from "./components/ThreadView";
 import { Composer } from "./components/Composer";
@@ -17,10 +18,24 @@ export default function App() {
   const view = useApp((s) => s.view);
   const currentProject = useApp((s) => s.currentProject);
   const init = useApp((s) => s.init);
+  const layout = useLayoutClass();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     void init();
   }, [init]);
+
+  // Reflect the phone drawer state onto <body> for CSS.
+  useEffect(() => {
+    document.body.dataset.sidebarOpen = String(layout === "phone" && sidebarOpen);
+  }, [layout, sidebarOpen]);
+
+  const isPhone = layout === "phone";
+
+  // Close the phone drawer when navigating to a view.
+  useEffect(() => {
+    if (layout !== "phone") setSidebarOpen(false);
+  }, [layout, view]);
 
   // Global keyboard shortcuts.
   useEffect(() => {
@@ -59,11 +74,12 @@ export default function App() {
     <div className="app">
       <div className="app-shell">
         <Sidebar />
+        {isPhone && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
         <main className="workspace">
           {view === "chat" && (
             <>
               <SessionTabs />
-              <TopBar />
+              <TopBar onMenu={() => setSidebarOpen(true)} />
               <div className="conversation-wrap">
                 {currentProject ? <ThreadView /> : <WelcomeView />}
               </div>
