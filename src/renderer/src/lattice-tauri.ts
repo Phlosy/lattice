@@ -70,9 +70,10 @@ export function createLatticeTauri(): LatticeApi {
       invoke("session_messages", { file: sessionId }) as Promise<never>,
 
     // Marketplace
-    extList: () => invoke("pi_list") as never,
+    extList: () => invoke("ext_list") as never,
     extInstall: (_cwd, source) => invoke("pi_install", { source }) as Promise<boolean>,
     extUninstall: (_cwd, source) => invoke("pi_remove", { source }) as Promise<boolean>,
+    extToggle: (_cwd, source, enabled) => invoke("ext_toggle", { source, enabled }) as Promise<boolean>,
 
     // Terminal
     createTerminal: async (cwd) => {

@@ -41,6 +41,8 @@ pub fn run() {
             marketplace::pi_list,
             marketplace::pi_install,
             marketplace::pi_remove,
+            marketplace::ext_list,
+            marketplace::ext_toggle,
             session::session_list,
             session::session_messages,
             model::get_models,
