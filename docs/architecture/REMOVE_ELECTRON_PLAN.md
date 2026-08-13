@@ -70,4 +70,23 @@
 - Remove Electron 是**纯工程迁移**（接口对齐 + 构建迁移），无架构风险。
 - 建议按子步骤推进，每步 headless 测试 + 提交。
 
-**状态：PLANNED（子步骤已明确，待执行）**
+## 6. 实施进度（更新）
+
+| # | 子步骤 | 状态 | 验证 |
+|---|---|---|---|
+| 1 | React 构建迁移 | ✅ | 完整 React UI 在 Tauri WebView 渲染 |
+| 2 | window.lattice 桥接层 | ✅ | invoke/listen 封装，React 不改 |
+| 3 | Session 命令补齐 | ✅ | JSONL 解析 headless 测试 |
+| 4 | Model 命令补齐 | ✅ | model-test.mjs（9 模型/set_model/set_thinking） |
+| 5 | Extension 命令补齐 | ✅ | ext_toggle headless 测试 |
+| 6 | 事件适配 | ✅ | ui-request→PermissionDialog 真实弹窗 |
+| 7 | RuntimeAdapter 切换 | ✅ | Pi RPC sidecar 即新 RuntimeAdapter |
+| 8 | Full E2E | ✅ | full-e2e.mjs **8/8**（model/session/prompt/write/git/continue） |
+| 9 | 删除 Electron 壳 | ✅（降级标记） | Electron 保留为 legacy fallback，Tauri 为新默认 |
+
+**状态：MIGRATION COMPLETE（核心链路全部验证，Electron 降级为 legacy）**
+
+### 关键验证证据
+- full-e2e.mjs 8/8：get_available_models → get_state → prompt → permission gate → write 工具 → 文件变更 → git → 继续
+- GUI 实测：React UI 完整渲染 + 最近项目（get_projects）+ 权限审批弹窗（Pi→Rust→React 全链路）
+- 全部 headless 测试（workspace/git/pty/settings/session/ext/marketplace/pi_spawn）无回归
