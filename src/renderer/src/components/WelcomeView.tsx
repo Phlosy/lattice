@@ -5,25 +5,25 @@ export function WelcomeView() {
   const projects = useApp((s) => s.projects);
 
   return (
-    <div className="welcome">
-      <div className="welcome-inner">
-        <h1>Lattice</h1>
-        <p>A desktop coding agent powered by the Pi runtime.</p>
-        <button className="btn btn-primary" onClick={() => openProject()}>
-          Open folder
-        </button>
-        {projects.length > 0 && (
-          <div style={{ marginTop: 24, textAlign: "left" }}>
-            <div className="sidebar-section-label">Recent</div>
-            {projects.map((p) => (
-              <div key={p.path} className="project-row" onClick={() => openProject(p.path)}>
-                <span className="icon">{p.kind === "repo" ? "⑂" : "▤"}</span>
-                {p.name}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="empty-state">
+      <div className="icon">Λ</div>
+      <h2>Welcome to Lattice</h2>
+      <p>A desktop coding agent powered by the Pi runtime. Open a folder to get started.</p>
+      <button className="btn btn-primary" onClick={() => openProject()}>
+        Open folder
+      </button>
+      {projects.length > 0 && (
+        <div style={{ marginTop: 24, width: "100%", maxWidth: 360, textAlign: "left" }}>
+          <div className="sidebar-section-title">Recent</div>
+          {projects.map((p) => (
+            <div key={p.path} className="item" onClick={() => openProject(p.path)}>
+              <span className="status-dot success" />
+              <span className="item-label">{p.name}</span>
+              <span className="item-meta">{p.kind === "repo" ? "⑂" : "▤"}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

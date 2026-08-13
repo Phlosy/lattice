@@ -42,7 +42,7 @@ export function ExtensionsView() {
 
   const loadRegistry = async () => {
     if (!registryUrl) return;
-    setStatus(`Loading registry ${registryUrl}…`);
+    setStatus(`Loading ${registryUrl}…`);
     try {
       const pkgs = (await window.lattice.extSearch(registryUrl)) as RegistryPackage[];
       setRegistry(pkgs);
@@ -56,12 +56,12 @@ export function ExtensionsView() {
     <div className="view">
       <div className="view-inner">
         <h1>Extensions</h1>
-        <p style={{ color: "var(--text-muted)", marginTop: 0 }}>
+        <p className="desc">
           Install Pi packages (extensions, skills, themes, prompts) from npm, git, or a local path.
         </p>
 
         <h2>Install</h2>
-        <div className="card">
+        <div className="section-card">
           <div className="field">
             <label>Source (npm:pkg · git:host/repo · /local/path)</label>
             <div style={{ display: "flex", gap: 8 }}>
@@ -70,19 +70,22 @@ export function ExtensionsView() {
                 onChange={(e) => setSource(e.target.value)}
                 placeholder="npm:@scope/pi-tools  ·  git:github.com/user/repo"
                 style={{ flex: 1 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && source.trim()) void install(source.trim());
+                }}
               />
               <button className="btn btn-primary" onClick={() => void install(source)} disabled={!source || !cwd}>
                 Install
               </button>
             </div>
           </div>
-          <div className="field">
+          <div className="field" style={{ marginBottom: 0 }}>
             <label>Registry (JSON manifest URL or path)</label>
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 value={registryUrl}
                 onChange={(e) => setRegistryUrl(e.target.value)}
-                placeholder="https://example.com/lattice-registry.json"
+                placeholder="https://example.com/registry.json"
                 style={{ flex: 1 }}
               />
               <button className="btn" onClick={() => void loadRegistry()}>
@@ -90,22 +93,22 @@ export function ExtensionsView() {
               </button>
             </div>
           </div>
-          {status && <p style={{ color: "var(--text-secondary)", fontSize: 12 }}>{status}</p>}
+          {status && <p className="desc" style={{ marginTop: 8, marginBottom: 0 }}>{status}</p>}
         </div>
 
         {registry.length > 0 && (
           <>
             <h2>Registry</h2>
-            <div className="card-list">
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {registry.map((p) => (
-                <div className="card" key={p.id}>
-                  <div className="card-row">
-                    <div className="grow">
-                      <div style={{ fontWeight: 500 }}>{p.displayName ?? p.name}</div>
-                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                <div className="section-card" key={p.id}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>{p.displayName ?? p.name}</div>
+                      <div className="desc" style={{ marginBottom: 0 }}>
                         {p.author} · v{p.version} · {p.kinds.join(", ")}
                       </div>
-                      <div style={{ fontSize: 12, marginTop: 4 }}>{p.description}</div>
+                      <div style={{ fontSize: 13, marginTop: 4 }}>{p.description}</div>
                     </div>
                     <button className="btn btn-sm btn-primary" onClick={() => void install(p.source)}>
                       Install
@@ -118,22 +121,29 @@ export function ExtensionsView() {
         )}
 
         <h2>Installed</h2>
-        <div className="card-list">
-          {installed.length === 0 && <div className="empty">Nothing installed yet</div>}
-          {installed.map((p) => (
-            <div className="card" key={p.source}>
-              <div className="card-row">
-                <div className="grow">
-                  <div style={{ fontWeight: 500, fontFamily: "var(--font-mono)", fontSize: 13 }}>{p.source}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{p.location}</div>
-                </div>
-                <button className="btn btn-sm" onClick={() => void uninstall(p.source)}>
-                  Uninstall
-                </button>
-              </div>
+        {installed.length === 0 ? (
+          <div className="section-card">
+            <div className="empty-state" style={{ padding: 24 }}>
+              <p>Nothing installed yet.</p>
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {installed.map((p) => (
+              <div className="section-card" key={p.source}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, fontFamily: "var(--font-mono)", fontSize: 13 }}>{p.source}</div>
+                    <div className="desc" style={{ marginBottom: 0 }}>{p.location}</div>
+                  </div>
+                  <button className="btn btn-sm" onClick={() => void uninstall(p.source)}>
+                    Uninstall
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
