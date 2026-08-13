@@ -22,9 +22,20 @@ async function openProject() {
   if (!path) return;
   const info = await invoke("open_project", { path });
   currentPath = info.path;
-  $("#ws-name").textContent = info.name;
   log(`opened project: ${info.path}`);
   await refreshFiles();
+  await refreshGit();
+}
+
+async function refreshGit() {
+  if (!currentPath) return;
+  try {
+    const st = await invoke("git_status", { path: currentPath });
+    const changes = st.clean ? "clean" : `${st.files.length} changed (+${st.added} −${st.removed})`;
+    $("#ws-name").textContent = `${$("#ws-name").textContent} · ${st.branch} ${changes}`;
+  } catch {
+    // not a git repo
+  }
 }
 
 async function refreshFiles() {
@@ -43,8 +54,14 @@ async function refreshFiles() {
 async function viewFile(rel) {
   const full = `${currentPath}/${rel}`;
   try {
-    const content = await invoke("read_file", { path: full });
-    $("#viewer").textContent = content;
+    // Prefer git diff when the file has changes, else read raw content
+    const diff = await invoke("git_diff", { path: currentPath, file: rel }).catch(() => null);
+    if (diff) {
+      $("#viewer").textContent = diff;
+    } else {
+      const content = await invoke("read_file", { path: full });
+      $("#viewer").textContent = content;
+    }
   } catch (e) {
     $("#viewer").textContent = `(binary or unreadable) ${e}`;
   }

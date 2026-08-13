@@ -9,6 +9,7 @@ use std::sync::Mutex;
 use tauri::{Emitter, State};
 
 pub mod workspace;
+pub mod git;
 
 // Path to Pi's CLI entry, resolved relative to the workspace root (lattice/).
 const PI_ENTRY: &str = "node_modules/@earendil-works/pi-coding-agent/dist/cli.js";
@@ -116,7 +117,13 @@ pub fn run() {
             workspace::open_project,
             workspace::list_files,
             workspace::read_file,
-            workspace::write_file
+            workspace::write_file,
+            git::git_status,
+            git::git_diff,
+            git::git_commit,
+            git::git_branches,
+            git::git_worktrees,
+            git::git_create_worktree
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
