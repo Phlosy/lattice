@@ -111,6 +111,24 @@ async function initTheme() {
 function applyTheme(theme) {
   document.body.classList.toggle("light", theme === "light");
 }
+async function listPackages() {
+  try {
+    const out = await invoke("pi_list");
+    log(`[packages]\n${out}`);
+  } catch (e) {
+    log(`[packages] error: ${e}`);
+  }
+}
+async function installPackage(src) {
+  log(`[install] ${src} ...`);
+  try {
+    const out = await invoke("pi_install", { source: src });
+    log(`[install] done\n${out}`);
+  } catch (e) {
+    log(`[install] failed: ${e}`);
+  }
+}
+
 async function toggleTheme() {
   const s = await invoke("get_settings");
   const next = { ...s, theme: s.theme === "dark" ? "light" : "dark" };
@@ -125,6 +143,8 @@ window.addEventListener("DOMContentLoaded", () => {
   $("#crash").addEventListener("click", crash);
   $("#term").addEventListener("click", openTerminal);
   $("#theme").addEventListener("click", toggleTheme);
+  $("#pkgs").addEventListener("click", listPackages);
+  $("#pkg-install").addEventListener("click", () => { const src = $("#pkg-src").value.trim(); if (src) installPackage(src); });
   initTheme();
   $("#term-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") termInput();

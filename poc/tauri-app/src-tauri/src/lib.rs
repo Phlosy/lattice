@@ -12,6 +12,7 @@ pub mod workspace;
 pub mod git;
 pub mod pty;
 pub mod settings;
+pub mod marketplace;
 
 // Path to Pi's CLI entry, resolved relative to the workspace root (lattice/).
 const PI_ENTRY: &str = "node_modules/@earendil-works/pi-coding-agent/dist/cli.js";
@@ -154,7 +155,10 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_kill,
             settings::get_settings,
-            settings::set_settings
+            settings::set_settings,
+            marketplace::pi_list,
+            marketplace::pi_install,
+            marketplace::pi_remove
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
