@@ -28,6 +28,8 @@ export function createLatticeTauri(): LatticeApi {
 
     // Workspace / filesystem
     openProject: (path) => invoke("open_project", { path }) as Promise<never>,
+    getProjects: () => invoke("get_projects") as Promise<never>,
+    removeProject: (path) => invoke("remove_project", { path }) as Promise<boolean>,
     listFiles: (cwd) => invoke("list_files", { path: cwd, maxFiles: 400 }) as Promise<string[]>,
 
     // Git
@@ -52,6 +54,8 @@ export function createLatticeTauri(): LatticeApi {
 
     // Pi agent (single-session RPC sidecar)
     prompt: (_sessionId, text) => invoke("pi_prompt", { text }) as Promise<boolean>,
+    steer: (_sessionId, text) => invoke("pi_steer", { message: text }) as Promise<boolean>,
+    followUp: (_sessionId, text) => invoke("pi_follow_up", { message: text }) as Promise<boolean>,
     abort: () => invoke("pi_abort") as Promise<boolean>,
     respondPermission: (requestId, action) =>
       invoke("pi_respond_ui", { id: requestId, confirmed: action.startsWith("allow") }) as Promise<boolean>,
@@ -68,6 +72,8 @@ export function createLatticeTauri(): LatticeApi {
       invoke("session_list", { sessionDir: "/tmp/pi-tauri-sessions" }) as never,
     getSessionMessages: (sessionId) =>
       invoke("session_messages", { file: sessionId }) as Promise<never>,
+    createSession: () => invoke("create_session") as Promise<never>,
+    getSessionState: () => invoke("get_session_state") as Promise<never>,
 
     // Marketplace
     extList: () => invoke("ext_list") as never,

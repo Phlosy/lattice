@@ -10,6 +10,7 @@ pub mod settings;
 pub mod marketplace;
 pub mod session;
 pub mod model;
+pub mod projects;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,6 +20,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             pi::pi_prompt,
             pi::pi_respond_ui,
+            pi::pi_steer,
+            pi::pi_follow_up,
             pi::pi_abort,
             pi::pi_crash,
             pi::pi_status,
@@ -45,9 +48,13 @@ pub fn run() {
             marketplace::ext_toggle,
             session::session_list,
             session::session_messages,
+            session::get_session_state,
+            session::create_session,
             model::get_models,
             model::set_model,
-            model::set_thinking_level
+            model::set_thinking_level,
+            projects::get_projects,
+            projects::remove_project
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

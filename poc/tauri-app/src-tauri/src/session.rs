@@ -6,6 +6,8 @@ use std::fs;
 use std::path::Path;
 
 use serde::Serialize;
+use tauri::{AppHandle, State};
+use crate::pi::{ensure_spawned, pi_request, PiShared};
 
 #[derive(Serialize, Debug)]
 pub struct SessionMeta {
@@ -46,6 +48,26 @@ pub fn session_messages(file: String) -> Result<Vec<serde_json::Value>, String> 
         }
     }
     Ok(msgs)
+}
+
+#[tauri::command]
+pub fn get_session_state(app: AppHandle, shared: State<PiShared>) -> Result<serde_json::Value, String> {
+    ensure_spawned(&app, &shared)?;
+    pi_request(&shared, serde_json::json!({ "type": "get_state" }))
+}
+
+#[tauri::command]
+pub fn create_session(app: AppHandle, shared: State<PiShared>) -> Result<serde_json::Value, String> {
+    ensure_spawned(&app, &shared)?;
+    pi_request(&shared, serde_json::json!({ "type": "new_session" }))?;
+    // Return the fresh session's state (includes sessionId) so the frontend
+    // gets a shape compatible with the Electron createSession result.
+    let state = pi_request(&shared, serde_json::json!({ "type": "get_state" }))?;
+    Ok(serde_json::json!({
+        "sessionId": state["sessionId"],
+        "cwd": state.get("cwd").and_then(|c| c.as_str()).unwrap_or(""),
+        "state": state,
+    }))
 }
 
 fn parse_session_meta(path: &Path) -> Result<SessionMeta, String> {

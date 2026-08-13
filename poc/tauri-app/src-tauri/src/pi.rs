@@ -132,6 +132,20 @@ pub fn pi_prompt(app: tauri::AppHandle, shared: State<PiShared>, text: String) -
 }
 
 #[tauri::command]
+pub fn pi_steer(app: tauri::AppHandle, shared: State<PiShared>, message: String) -> Result<String, String> {
+    ensure_spawned(&app, &shared)?;
+    pi_send(&shared, serde_json::json!({ "type": "steer", "message": message }))?;
+    Ok("steer sent".into())
+}
+
+#[tauri::command]
+pub fn pi_follow_up(app: tauri::AppHandle, shared: State<PiShared>, message: String) -> Result<String, String> {
+    ensure_spawned(&app, &shared)?;
+    pi_send(&shared, serde_json::json!({ "type": "follow_up", "message": message }))?;
+    Ok("follow_up sent".into())
+}
+
+#[tauri::command]
 pub fn pi_abort(app: tauri::AppHandle, shared: State<PiShared>) -> Result<String, String> {
     ensure_spawned(&app, &shared)?;
     pi_send(&shared, serde_json::json!({ "type": "abort" }))?;

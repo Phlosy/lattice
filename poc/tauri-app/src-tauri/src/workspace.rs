@@ -30,6 +30,7 @@ pub fn open_project(path: String) -> Result<ProjectInfo, String> {
         .map(|n| n.to_string_lossy().to_string())
         .filter(|n| !n.is_empty())
         .unwrap_or_else(|| path.clone());
+    crate::projects::record_project(&path);
     Ok(ProjectInfo { path, name })
 }
 
