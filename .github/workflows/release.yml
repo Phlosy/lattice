@@ -16,22 +16,39 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # macOS
           - os: macos-14
-            label: macos-arm64
+            label: macos-apple-silicon
             platform: darwin-arm64
             target: aarch64-apple-darwin
+            artifact: macOS-Apple-Silicon
           - os: macos-14
-            label: macos-x64
+            label: macos-intel
             platform: darwin-x64
             target: x86_64-apple-darwin
+            artifact: macOS-Intel
+          # Windows
           - os: windows-latest
             label: windows-x64
             platform: windows-x64
             target: x86_64-pc-windows-msvc
+            artifact: Windows-x64
+          - os: windows-latest
+            label: windows-arm64
+            platform: windows-arm64
+            target: aarch64-pc-windows-msvc
+            artifact: Windows-ARM64
+          # Linux
           - os: ubuntu-latest
-            label: linux-x64
+            label: linux-x86_64
             platform: linux-x64
             target: x86_64-unknown-linux-gnu
+            artifact: Linux-x86_64
+          - os: ubuntu-latest
+            label: linux-aarch64
+            platform: linux-arm64
+            target: aarch64-unknown-linux-gnu
+            artifact: Linux-aarch64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +90,14 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libgtk-3-dev
 
+      - name: Install Linux ARM64 cross-compile deps
+        if: matrix.label == 'linux-aarch64'
+        run: |
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            libwebkit2gtk-4.1-dev:arm64 libgtk-3-dev:arm64
+
       - name: Install npm deps
         run: npm ci --ignore-scripts
 
@@ -86,12 +111,6 @@ jobs:
           bash scripts/build-pi-sidecar.sh "${{ matrix.platform }}" > /tmp/sidecar.out 2>&1
           RC=$?
           cat /tmp/sidecar.out
-          {
-            echo "## Build Pi sidecar (exit $RC)"
-            echo '```'
-            tail -60 /tmp/sidecar.out
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
           if [ $RC -ne 0 ]; then
             echo "::error::build-pi-sidecar failed (exit $RC)"
           fi
@@ -105,21 +124,19 @@ jobs:
         run: |
           set -euo pipefail
           V="${VERSION}"
+          A="${{ matrix.artifact }}"
           BUNDLE="poc/tauri-app/src-tauri/target/${{ matrix.target }}/release/bundle"
           mkdir -p dist-artifacts
-          case "${{ matrix.label }}" in
-            macos-arm64)
-              cp "$BUNDLE"/dmg/*.dmg "dist-artifacts/Lattice-v${V}-macos-arm64.dmg"
+          case "${{ matrix.platform }}" in
+            darwin-*)
+              cp "$BUNDLE"/dmg/*.dmg "dist-artifacts/Lattice-v${V}-${A}.dmg"
               ;;
-            macos-x64)
-              cp "$BUNDLE"/dmg/*.dmg "dist-artifacts/Lattice-v${V}-macos-x64.dmg"
+            windows-*)
+              cp "$BUNDLE"/nsis/*.exe "dist-artifacts/Lattice-v${V}-${A}.exe"
               ;;
-            windows-x64)
-              cp "$BUNDLE"/nsis/*.exe "dist-artifacts/Lattice-v${V}-windows-x64.exe"
-              ;;
-            linux-x64)
-              cp "$BUNDLE"/appimage/*.AppImage "dist-artifacts/Lattice-v${V}-linux-x64.AppImage"
-              cp "$BUNDLE"/deb/*.deb "dist-artifacts/Lattice-v${V}-linux-x64.deb" 2>/dev/null || true
+            linux-*)
+              cp "$BUNDLE"/appimage/*.AppImage "dist-artifacts/Lattice-v${V}-${A}.AppImage"
+              cp "$BUNDLE"/deb/*.deb "dist-artifacts/Lattice-v${V}-${A}.deb" 2>/dev/null || true
               ;;
           esac
           ls -la dist-artifacts/
@@ -164,6 +181,17 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+          body: |
+            ## Downloads
+
+            | Platform | Device | Download |
+            |---|---|---|
+            | macOS | Apple Silicon | `Lattice-${{ github.ref_name }}-macOS-Apple-Silicon.dmg` |
+            | macOS | Intel | `Lattice-${{ github.ref_name }}-macOS-Intel.dmg` |
+            | Windows | x64 | `Lattice-${{ github.ref_name }}-Windows-x64.exe` |
+            | Windows | ARM64 | `Lattice-${{ github.ref_name }}-Windows-ARM64.exe` |
+            | Linux | x86_64 | `Lattice-${{ github.ref_name }}-Linux-x86_64.AppImage` / `.deb` |
+            | Linux | ARM64 (aarch64) | `Lattice-${{ github.ref_name }}-Linux-aarch64.AppImage` / `.deb` |
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
