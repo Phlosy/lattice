@@ -81,7 +81,15 @@ jobs:
 
       - name: Build Pi sidecar
         shell: bash
-        run: scripts/build-pi-sidecar.sh "${{ matrix.platform }}"
+        run: |
+          set +e
+          bash scripts/build-pi-sidecar.sh "${{ matrix.platform }}" > /tmp/sidecar.out 2>&1
+          RC=$?
+          cat /tmp/sidecar.out
+          if [ $RC -ne 0 ]; then
+            echo "::error::build-pi-sidecar failed: $(tail -40 /tmp/sidecar.out | tr '\n' ' | ' | head -c 50000)"
+          fi
+          exit $RC
 
       - name: Tauri build
         run: npx tauri build --config poc/tauri-app/src-tauri/tauri.conf.json --target "${{ matrix.target }}"
