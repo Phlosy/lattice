@@ -45,6 +45,7 @@ interface AppStore {
   gitStatus: GitStatus | null;
   activePanel: PanelKind | null;
   panelHeight: number;
+  sidebarCollapsed: boolean;
 
   init: () => Promise<void>;
   setView: (v: View) => void;
@@ -79,6 +80,7 @@ interface AppStore {
   togglePanel: (kind: PanelKind) => void;
   closePanel: () => void;
   setPanelHeight: (height: number) => void;
+  toggleSidebar: () => void;
 
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
 }
@@ -110,6 +112,7 @@ export const useApp = create<AppStore>((set, get) => ({
   gitStatus: null,
   activePanel: null,
   panelHeight: 280,
+  sidebarCollapsed: false,
 
   init: async () => {
     // Wire event subscriptions once.
@@ -354,6 +357,8 @@ export const useApp = create<AppStore>((set, get) => ({
   closePanel: () => set({ activePanel: null }),
 
   setPanelHeight: (height) => set({ panelHeight: Math.max(120, Math.min(height, 600)) }),
+
+  toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
 
   updateSettings: async (patch) => {
     const settings = (await api().setSettings(patch)) as AppSettings;
