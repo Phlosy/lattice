@@ -8,6 +8,8 @@ use std::sync::Mutex;
 
 use tauri::{Emitter, State};
 
+pub mod workspace;
+
 // Path to Pi's CLI entry, resolved relative to the workspace root (lattice/).
 const PI_ENTRY: &str = "node_modules/@earendil-works/pi-coding-agent/dist/cli.js";
 const SESSION_DIR: &str = "/tmp/pi-tauri-sessions";
@@ -106,7 +108,16 @@ fn pi_status(state: State<PiState>) -> Result<String, String> {
 pub fn run() {
     tauri::Builder::default()
         .manage(PiState(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![pi_prompt, pi_abort, pi_crash, pi_status])
+        .invoke_handler(tauri::generate_handler![
+            pi_prompt,
+            pi_abort,
+            pi_crash,
+            pi_status,
+            workspace::open_project,
+            workspace::list_files,
+            workspace::read_file,
+            workspace::write_file
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

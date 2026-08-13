@@ -1,24 +1,60 @@
-// Tauri PoC frontend — minimal prompt UI driving the Pi sidecar via Rust.
-// Verifies the full chain: webview → Tauri IPC → Rust → Pi RPC → streaming events back.
+// Tauri PoC frontend — Workspace (open/list/read) + Pi sidecar prompt.
+// Verifies: webview → Tauri IPC → Rust → fs / Pi RPC → streaming events.
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
-let outputEl;
-let inputEl;
+let currentPath = null;
+
+function $(id) {
+  return document.querySelector(id);
+}
 
 function log(msg) {
   const div = document.createElement("div");
   div.textContent = msg;
-  outputEl.appendChild(div);
-  outputEl.scrollTop = outputEl.scrollHeight;
+  $("#output").appendChild(div);
+  $("#output").scrollTop = $("#output").scrollHeight;
+}
+
+async function openProject() {
+  const path = $("#path").value.trim();
+  if (!path) return;
+  const info = await invoke("open_project", { path });
+  currentPath = info.path;
+  $("#ws-name").textContent = info.name;
+  log(`opened project: ${info.path}`);
+  await refreshFiles();
+}
+
+async function refreshFiles() {
+  if (!currentPath) return;
+  const files = await invoke("list_files", { path: currentPath, maxFiles: 400 });
+  $("#files").innerHTML = "";
+  for (const f of files) {
+    const div = document.createElement("div");
+    div.className = "file";
+    div.textContent = f;
+    div.onclick = () => viewFile(f);
+    $("#files").appendChild(div);
+  }
+}
+
+async function viewFile(rel) {
+  const full = `${currentPath}/${rel}`;
+  try {
+    const content = await invoke("read_file", { path: full });
+    $("#viewer").textContent = content;
+  } catch (e) {
+    $("#viewer").textContent = `(binary or unreadable) ${e}`;
+  }
 }
 
 async function prompt() {
-  const text = inputEl.value.trim();
+  const text = $("#input").value.trim();
   if (!text) return;
   log(`> ${text}`);
-  inputEl.value = "";
+  $("#input").value = "";
   await invoke("pi_prompt", { text });
 }
 
@@ -32,44 +68,36 @@ async function crash() {
   log("(pi killed — crash isolation test)");
 }
 
-async function status() {
-  const s = await invoke("pi_status");
-  log(`status: ${s}`);
-}
-
 window.addEventListener("DOMContentLoaded", () => {
-  outputEl = document.querySelector("#output");
-  inputEl = document.querySelector("#input");
-  document.querySelector("#send").addEventListener("click", prompt);
-  document.querySelector("#abort").addEventListener("click", abort);
-  document.querySelector("#crash").addEventListener("click", crash);
-  document.querySelector("#status").addEventListener("click", status);
-  inputEl.addEventListener("keydown", (e) => {
+  $("#open").addEventListener("click", openProject);
+  $("#send").addEventListener("click", prompt);
+  $("#abort").addEventListener("click", abort);
+  $("#crash").addEventListener("click", crash);
+  $("#input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") prompt();
   });
+  $("#path").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") openProject();
+  });
 
-  // Stream Pi events from Rust → webview
   listen("pi-event", (event) => {
     const e = event.payload;
     if (e.type === "message_update" && e.assistantMessageEvent?.type === "text_delta") {
-      // Append streaming text (no newline per delta)
-      const last = outputEl.lastElementChild;
+      const last = $("#output").lastElementChild;
       if (last && last.dataset.stream) {
         last.textContent += e.assistantMessageEvent.delta;
       } else {
         const div = document.createElement("div");
         div.dataset.stream = "1";
         div.textContent = e.assistantMessageEvent.delta;
-        outputEl.appendChild(div);
+        $("#output").appendChild(div);
       }
-      outputEl.scrollTop = outputEl.scrollHeight;
+      $("#output").scrollTop = $("#output").scrollHeight;
     } else if (e.type === "tool_execution_start") {
       log(`[tool] ${e.toolName}`);
-    } else if (e.type === "agent_start") {
-      log("(agent started)");
     } else if (e.type === "agent_settled") {
       log("(agent settled)");
-      const last = outputEl.lastElementChild;
+      const last = $("#output").lastElementChild;
       if (last?.dataset.stream) delete last.dataset.stream;
     }
   });
@@ -77,6 +105,4 @@ window.addEventListener("DOMContentLoaded", () => {
   listen("pi-exit", () => {
     log("(pi process exited — crash detected by Rust)");
   });
-
-  status();
 });
