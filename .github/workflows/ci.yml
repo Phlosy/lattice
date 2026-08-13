@@ -81,7 +81,19 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: Check API key
+        id: key
+        env:
+          KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::DEEPSEEK_API_KEY secret not configured — skipping real-model E2E"
+          fi
       - name: Full E2E (real model)
+        if: steps.key.outputs.available == 'true'
         run: node poc/pi-sidecar/full-e2e.mjs
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
