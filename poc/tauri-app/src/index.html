@@ -24,6 +24,15 @@
       #controls { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #26272e; }
       input, button { background: #1a1b20; border: 1px solid #33343c; color: #e6e6ea; border-radius: 6px; padding: 8px 12px; font-size: 13px; }
       input { flex: 1; }
+      body.light { background: #ffffff; color: #19191d; }
+      body.light #sidebar { border-color: #e0e0e5; }
+      body.light #sidebar .ws-head { border-color: #e0e0e5; }
+      body.light .file:hover { background: #ececef; }
+      body.light input, body.light button { background: #f5f5f7; border-color: #dfdfe4; color: #19191d; }
+      body.light button:hover { background: #ececef; }
+      body.light #send { background: #2f6fdc; color: #fff; border-color: #2f6fdc; }
+      body.light #viewer, body.light #output, body.light #term-out { border-color: #e0e0e5; }
+      body.light #term-out { background: #f0f0f3; }
       button { cursor: pointer; }
       button:hover { background: #34353c; }
       #send { background: #6ea8fe; color: #0f1014; border-color: #6ea8fe; font-weight: 600; }
@@ -53,6 +62,7 @@
         <button id="abort">Abort</button>
         <button id="crash">Crash</button>
         <button id="term">Terminal</button>
+        <button id="theme">Theme</button>
       </div>
     </div>
     <script src="./main.js"></script>

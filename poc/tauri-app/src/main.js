@@ -102,12 +102,30 @@ function termInput() {
   $("#term-input").value = "";
 }
 
+async function initTheme() {
+  try {
+    const s = await invoke("get_settings");
+    applyTheme(s.theme);
+  } catch {}
+}
+function applyTheme(theme) {
+  document.body.classList.toggle("light", theme === "light");
+}
+async function toggleTheme() {
+  const s = await invoke("get_settings");
+  const next = { ...s, theme: s.theme === "dark" ? "light" : "dark" };
+  await invoke("set_settings", { settings: next });
+  applyTheme(next.theme);
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   $("#open").addEventListener("click", openProject);
   $("#send").addEventListener("click", prompt);
   $("#abort").addEventListener("click", abort);
   $("#crash").addEventListener("click", crash);
   $("#term").addEventListener("click", openTerminal);
+  $("#theme").addEventListener("click", toggleTheme);
+  initTheme();
   $("#term-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") termInput();
   });

@@ -11,6 +11,7 @@ use tauri::{Emitter, State};
 pub mod workspace;
 pub mod git;
 pub mod pty;
+pub mod settings;
 
 // Path to Pi's CLI entry, resolved relative to the workspace root (lattice/).
 const PI_ENTRY: &str = "node_modules/@earendil-works/pi-coding-agent/dist/cli.js";
@@ -151,7 +152,9 @@ pub fn run() {
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,
-            pty::pty_kill
+            pty::pty_kill,
+            settings::get_settings,
+            settings::set_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
