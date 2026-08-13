@@ -3,6 +3,7 @@
 
 import { app, BrowserWindow, shell } from "electron";
 import { join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { EVT, IPC } from "@shared/types";
 import { registerIpc } from "./ipc";
@@ -92,6 +93,7 @@ async function bootstrap(): Promise<void> {
 app.whenReady().then(async () => {
   createWindow();
   await bootstrap();
+  installCaptureDriver();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -106,3 +108,42 @@ app.on("before-quit", () => {
   terminal.disposeAll();
   sessions.disposeAll();
 });
+
+/**
+ * Visual-regression driver. When LATTICE_DRIVE points at a JSON command file,
+ * the window executes commands (wait / exec / capture / quit) after load and
+ * saves PNG screenshots to LATTICE_CAPTURE_DIR (default /tmp/lattice-captures).
+ * `exec` runs JavaScript in the renderer (window.__latticeStore is exposed).
+ */
+function installCaptureDriver(): void {
+  const driveFile = process.env.LATTICE_DRIVE;
+  if (!driveFile || !mainWindow) return;
+  const captureDir = process.env.LATTICE_CAPTURE_DIR || "/tmp/lattice-captures";
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  mainWindow.webContents.once("did-finish-load", async () => {
+    try {
+      const commands = JSON.parse(readFileSync(driveFile, "utf8")) as Array<Record<string, unknown>>;
+      mkdirSync(captureDir, { recursive: true });
+      for (const cmd of commands) {
+        if (cmd.wait !== undefined) {
+          await sleep(Number(cmd.wait));
+        } else if (cmd.exec !== undefined) {
+          const result = await mainWindow!.webContents.executeJavaScript(String(cmd.exec), true);
+          console.log("[exec]", JSON.stringify(result));
+        } else if (cmd.capture !== undefined) {
+          const image = await mainWindow!.webContents.capturePage();
+          const out = join(captureDir, String(cmd.capture));
+          writeFileSync(out, image.toPNG());
+          console.log("[capture]", out);
+        } else if (cmd.quit) {
+          break;
+        }
+      }
+    } catch (err) {
+      console.error("[drive] error:", err);
+    } finally {
+      app.quit();
+    }
+  });
+}
