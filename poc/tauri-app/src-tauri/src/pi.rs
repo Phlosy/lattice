@@ -126,6 +126,12 @@ impl PiShared {
     }
 }
 
+impl Default for PiShared {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for PiShared {
     fn drop(&mut self) {
         self.stopping.store(true, Ordering::SeqCst);
