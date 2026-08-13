@@ -1,105 +1,56 @@
-import { useEffect, useRef } from "react";
-import type { AgentMessage, AssistantMessage, ToolCall } from "@shared/types";
+import { useEffect, useRef, useState } from "react";
+import type { AgentMessage } from "@shared/types";
 import { useApp } from "../store/useApp";
-import { Markdown } from "./Markdown";
-import { ToolCard, contentToText } from "./ToolCard";
+import { AssistantMessageView, contentToText } from "./blocks";
 
-function ToolCallCard({ call }: { call: ToolCall }) {
-  const exec = useApp((s) => s.transcript.toolExecutions[call.id]);
-  const result = useApp((s) => findToolResult(s.transcript.messages, call.id));
+function BashExecutionView({ message }: { message: Extract<AgentMessage, { role: "bashExecution" }> }) {
+  const [open, setOpen] = useState(false);
+  const failed = message.exitCode !== 0 && message.exitCode !== undefined;
   return (
-    <ToolCard
-      toolName={call.name}
-      args={call.arguments}
-      resultContent={result?.content}
-      resultDetails={result?.details}
-      isError={result?.isError}
-      exec={exec}
-    />
+    <div className={`block ${failed ? "block-error" : ""} ${open ? "open" : ""}`}>
+      <div className="block-head" onClick={() => setOpen((v) => !v)}>
+        <span className="chev">▸</span>
+        <span style={{ color: failed ? "var(--danger)" : "var(--success)" }}>{failed ? "✗" : "✓"}</span>
+        <span className="kind">$ {message.command}</span>
+        {message.exitCode !== undefined && (
+          <span className={`exit-${failed ? "err" : "0"}`}>exit {message.exitCode}</span>
+        )}
+      </div>
+      {open && <div className="block-body">{message.output || "—"}</div>}
+    </div>
   );
 }
 
-function findToolResult(messages: AgentMessage[], toolCallId: string) {
-  for (const m of messages) {
-    if (m.role === "toolResult" && m.toolCallId === toolCallId) return m;
-  }
-  return undefined;
-}
-
-function AssistantBlocks({ message }: { message: AssistantMessage }) {
+function SummaryBlock({ label, summary }: { label: string; summary: string }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="msg msg-assistant">
-      {message.content.map((block, i) => {
-        if (block.type === "text") {
-          return <Markdown key={i} text={block.text} />;
-        }
-        if (block.type === "thinking") {
-          return (
-            <details className="thinking-block" key={i}>
-              <summary>Thinking</summary>
-              <div className="thinking-body">{block.thinking}</div>
-            </details>
-          );
-        }
-        if (block.type === "toolCall") {
-          return <ToolCallCard key={i} call={block} />;
-        }
-        return null;
-      })}
-      {message.errorMessage && (
-        <div className="tool-card error">
-          <div className="tool-card-body" style={{ color: "var(--danger)" }}>
-            {message.errorMessage}
-          </div>
-        </div>
-      )}
+    <div className={`block block-thinking ${open ? "open" : ""}`}>
+      <div className="block-head" onClick={() => setOpen((v) => !v)}>
+        <span className="chev">▸</span>
+        <span className="kind">{label}</span>
+      </div>
+      {open && <div className="block-body">{summary}</div>}
     </div>
   );
 }
 
 function MessageItem({ message }: { message: AgentMessage }) {
+  const execs = useApp((s) => s.transcript.toolExecutions);
+  const messages = useApp((s) => s.transcript.messages);
+
   switch (message.role) {
     case "user":
       return <div className="msg-user">{contentToText(message.content)}</div>;
     case "assistant":
-      return <AssistantBlocks message={message} />;
+      return <AssistantMessageView message={message} execs={execs} messages={messages} />;
     case "toolResult":
-      return (
-        <ToolCard
-          toolName={message.toolName}
-          args={{}}
-          resultContent={message.content}
-          resultDetails={message.details}
-          isError={message.isError}
-        />
-      );
+      return null; // rendered inline within the tool call block
     case "bashExecution":
-      return (
-        <ToolCard
-          toolName="bash"
-          args={{ command: message.command }}
-          resultContent={[{ type: "text", text: message.output }]}
-          isError={message.exitCode !== 0 && message.exitCode !== undefined}
-        />
-      );
+      return <BashExecutionView message={message} />;
     case "branchSummary":
-      return (
-        <div className="thinking-block">
-          <details>
-            <summary>Branch summary</summary>
-            <div className="thinking-body">{message.summary}</div>
-          </details>
-        </div>
-      );
+      return <SummaryBlock label="Branch summary" summary={message.summary} />;
     case "compactionSummary":
-      return (
-        <div className="thinking-block">
-          <details>
-            <summary>Context compacted</summary>
-            <div className="thinking-body">{message.summary}</div>
-          </details>
-        </div>
-      );
+      return <SummaryBlock label="Context compacted" summary={message.summary} />;
     case "custom":
       if (!message.display) return null;
       return <div className="msg-user">{contentToText(message.content)}</div>;
@@ -119,25 +70,38 @@ export function ThreadView() {
 
   if (!activeSessionId) {
     return (
-      <div className="empty">
-        <div>Create a session to start coding</div>
+      <div className="empty-state">
+        <div className="icon">＋</div>
+        <h2>No session</h2>
+        <p>Create a session to start a coding task with the agent.</p>
       </div>
     );
   }
 
   return (
-    <div className="thread">
-      <div className="thread-inner">
+    <div className="conversation">
+      <div className="conversation-inner">
         {transcript.messages.map((m, i) => (
           <MessageItem key={i} message={m} />
         ))}
-        {transcript.streaming && <AssistantBlocks message={transcript.streaming} />}
-        {transcript.running && !transcript.streaming && <div className="msg-role-label">thinking…</div>}
+        {transcript.streaming && (
+          <AssistantMessageView
+            message={transcript.streaming}
+            streaming
+            execs={transcript.toolExecutions}
+            messages={transcript.messages}
+          />
+        )}
+        {transcript.running && !transcript.streaming && (
+          <div className="loading-row">
+            <span className="spinner" />
+            Waiting for the agent…
+          </div>
+        )}
         {transcript.lastError && (
-          <div className="tool-card error">
-            <div className="tool-card-body" style={{ color: "var(--danger)" }}>
-              {transcript.lastError}
-            </div>
+          <div className="block block-error">
+            <div className="block-head">✗ Error</div>
+            <div className="block-body">{transcript.lastError}</div>
           </div>
         )}
         <div ref={endRef} />

@@ -6,6 +6,8 @@ import type { AgentMessage, AssistantMessage } from "@shared/types";
 export interface ToolExecState {
   toolName: string;
   args: Record<string, unknown>;
+  startTime?: number;
+  endTime?: number;
   partial?: { content?: Array<{ type: string; text?: string }> };
   result?: unknown;
   isError?: boolean;
@@ -75,7 +77,7 @@ export function reduceTranscript(state: TranscriptState, event: Event): Transcri
         ...state,
         toolExecutions: {
           ...state.toolExecutions,
-          [event.toolCallId]: { toolName: event.toolName, args: event.args ?? {} },
+          [event.toolCallId]: { toolName: event.toolName, args: event.args ?? {}, startTime: Date.now() },
         },
       };
 
@@ -100,6 +102,7 @@ export function reduceTranscript(state: TranscriptState, event: Event): Transcri
             ...(state.toolExecutions[event.toolCallId] ?? { toolName: event.toolName, args: {} }),
             result: event.result,
             isError: event.isError,
+            endTime: Date.now(),
           },
         },
       };
