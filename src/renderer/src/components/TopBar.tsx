@@ -163,13 +163,16 @@ export function TopBar() {
       <button className="icon-btn" data-tooltip={t("topbar.terminal")} onClick={() => void createTerminal()}>
         ⌘
       </button>
-      <button
-        className={`icon-btn ${activePanel === "git" ? "active" : ""}`}
-        data-tooltip={t("topbar.git")}
-        onClick={() => togglePanel("git")}
-      >
-        {gitStatus && !gitStatus.clean ? `⑂${gitStatus.files.length}` : "⑂"}
-      </button>
+      {gitStatus && (
+        <button
+          className={`git-status ${!gitStatus.clean ? "dirty" : ""}`}
+          data-tooltip={t("topbar.git")}
+          onClick={() => togglePanel("git")}
+        >
+          <span className="git-branch">{gitStatus.branch}</span>
+          {!gitStatus.clean && <span className="git-changes">{gitStatus.files.length}</span>}
+        </button>
+      )}
       <button className="icon-btn" data-tooltip={t("sidebar.settings")} onClick={() => setView("settings")}>
         ⚙
       </button>

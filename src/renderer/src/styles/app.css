@@ -220,7 +220,7 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: var(--surface-1);
+  background: var(--sidebar-bg);
   border-right: 1px solid var(--border-subtle);
   min-height: 0;
 }
@@ -460,6 +460,46 @@ body[data-platform="darwin"] .sidebar-header {
   gap: 6px;
   font-size: var(--fs-12);
   color: var(--text-muted);
+}
+
+/* Persistent git status (branch + change count) — Codex-style */
+.git-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-12);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.git-status:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+.git-status .git-branch {
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+}
+.git-status.dirty .git-branch {
+  color: var(--text-primary);
+}
+.git-status .git-changes {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--warning-subtle);
+  color: var(--warning);
+  font-size: var(--fs-11);
+  font-weight: var(--fw-medium);
 }
 
 /* ---- Conversation ---------------------------------------------------------- */
@@ -765,7 +805,6 @@ body[data-platform="darwin"] .sidebar-header {
 .composer {
   flex-shrink: 0;
   padding: var(--sp-3) var(--sp-6) var(--sp-4);
-  background: linear-gradient(to top, var(--bg-app) 70%, transparent);
   position: relative;
 }
 .composer-inner {
@@ -776,19 +815,33 @@ body[data-platform="darwin"] .sidebar-header {
   gap: var(--sp-2);
 }
 
+/* Project / branch context above the input (Codex-style) */
+.composer-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-12);
+  color: var(--text-muted);
+}
+.composer-context .composer-project {
+  color: var(--text-secondary);
+}
+.composer-context .composer-sep {
+  color: var(--text-faint);
+}
+.composer-context .composer-branch {
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  color: var(--text-muted);
+}
+
+/* Borderless composer — Codex uses a frameless input area */
 .composer-box {
   display: flex;
   align-items: flex-end;
   gap: var(--sp-2);
-  background: var(--surface-1);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
-  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
-}
-.composer-box:focus-within {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--accent-subtle);
+  background: transparent;
+  padding: var(--sp-1) 0;
 }
 .composer-box textarea {
   flex: 1;
@@ -809,48 +862,58 @@ body[data-platform="darwin"] .sidebar-header {
   color: var(--text-muted);
 }
 
-.composer-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-.composer-toolbar .left {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-1);
-}
-.composer-toolbar .right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-
-.send-btn {
+/* Attachment button — Codex uses an orange paperclip icon */
+.attach-btn {
+  flex-shrink: 0;
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-sm);
   border: none;
-  background: var(--accent);
-  color: var(--text-on-accent);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: #d25f28;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+  transition: background var(--dur-fast) var(--ease);
 }
-.send-btn:hover {
-  background: var(--accent-hover);
+.attach-btn:hover {
+  background: var(--surface-3);
 }
-.send-btn:disabled {
-  background: var(--surface-4);
-  color: var(--text-faint);
-  cursor: default;
-}
-.stop-btn {
+
+/* Send button — circular, dark/primary, dims when no text (Codex-style) */
+.send-btn {
+  flex-shrink: 0;
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--surface-4);
+  color: var(--text-faint);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.send-btn.active {
+  background: var(--text-primary);
+  color: var(--bg-app);
+}
+.send-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+.send-btn:disabled {
+  cursor: default;
+}
+
+/* Stop button — circular */
+.stop-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--border-strong);
   background: var(--surface-2);
   color: var(--danger);
@@ -861,6 +924,12 @@ body[data-platform="darwin"] .sidebar-header {
 }
 .stop-btn:hover {
   background: var(--danger-subtle);
+}
+.stop-icon {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: currentColor;
 }
 
 .composer-hint {
@@ -1413,6 +1482,82 @@ kbd {
 }
 .git-commit-bar input:focus {
   border-color: var(--border-focus);
+}
+
+/* ---- Inline file changes (Codex-style diff integration) ------------------- */
+.file-changes {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  overflow: hidden;
+  font-size: var(--fs-13);
+}
+.file-changes-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 7px var(--sp-3);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: var(--fw-medium);
+  transition: background var(--dur-fast) var(--ease);
+}
+.file-changes-head:hover {
+  background: var(--surface-3);
+}
+.file-changes-head .chev {
+  color: var(--text-muted);
+}
+.file-changes-head .diff-total {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  color: var(--success);
+}
+.file-changes-list {
+  border-top: 1px solid var(--border-subtle);
+  padding: 2px 0;
+}
+.file-change-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 4px var(--sp-3);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  transition: background var(--dur-fast) var(--ease);
+}
+.file-change-row:hover {
+  background: var(--surface-2);
+}
+.fc-status {
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+  font-size: var(--fs-11);
+  font-weight: var(--fw-semibold);
+}
+.fc-status.modified { color: var(--warning); }
+.fc-status.staged { color: var(--success); }
+.fc-status.untracked { color: var(--accent); }
+.fc-path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.fc-num {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: var(--fs-11);
+}
+.file-change-more {
+  padding: 4px var(--sp-3);
+  font-size: var(--fs-11);
+  color: var(--text-muted);
 }
 
 /* ---- Views (settings / extensions) ------------------------------------------------- */

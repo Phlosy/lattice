@@ -26,12 +26,46 @@ export class GitManager {
     const g = this.git(cwd);
     const branch = await g.revparse(["--abbrev-ref", "HEAD"]);
     const status: StatusResult = await g.status();
-    const files: GitFileStatus[] = status.files.map((f) => ({
-      path: f.path,
-      index: f.index,
-      workingDir: f.working_dir,
-      staged: f.index !== " " && f.index !== "?",
-    }));
+
+    // Per-file added/removed line counts via git diff --numstat (tracked + staged).
+    let numstat = new Map<string, { added: number; removed: number }>();
+    try {
+      const out = await g.raw(["diff", "--numstat"]);
+      for (const line of out.split("\n")) {
+        const parts = line.split("\t");
+        if (parts.length < 3) continue;
+        const [a, r, path] = parts;
+        numstat.set(path, {
+          added: a === "-" ? 0 : Number(a) || 0,
+          removed: r === "-" ? 0 : Number(r) || 0,
+        });
+      }
+    } catch {
+      // ignore
+    }
+
+    const files: GitFileStatus[] = status.files.map((f) => {
+      const ns = numstat.get(f.path) ?? { added: 0, removed: 0 };
+      // Untracked files: count all lines as added.
+      if (f.index === "?") {
+        try {
+          const content = readFileSync(join(cwd, f.path), "utf8");
+          const added = content.split("\n").length - 1;
+          return { path: f.path, index: f.index, workingDir: f.working_dir, staged: false, added, removed: 0 };
+        } catch {
+          // binary / unreadable
+        }
+      }
+      return {
+        path: f.path,
+        index: f.index,
+        workingDir: f.working_dir,
+        staged: f.index !== " " && f.index !== "?",
+        added: ns.added,
+        removed: ns.removed,
+      };
+    });
+
     let ahead = 0;
     let behind = 0;
     try {
@@ -42,12 +76,16 @@ export class GitManager {
     } catch {
       // Detached HEAD or no upstream.
     }
+    const totalAdded = files.reduce((s, f) => s + f.added, 0);
+    const totalRemoved = files.reduce((s, f) => s + f.removed, 0);
     return {
       branch: typeof branch === "string" ? branch : "detached",
       files,
       clean: status.isClean(),
       ahead,
       behind,
+      added: totalAdded,
+      removed: totalRemoved,
     };
   }
 

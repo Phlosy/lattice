@@ -115,6 +115,11 @@ export const useApp = create<AppStore>((set, get) => ({
       if (sessionId !== s.activeSessionId) return;
       const next = reduceTranscript(s.transcript, event);
       set({ transcript: next });
+      // Refresh git status when the agent settles, so file changes surface
+      // in the conversation (Codex-style diff integration).
+      if (event.type === "agent_settled" && s.currentProject) {
+        void s.refreshGit();
+      }
     });
 
     api().onSessionState((state) => {

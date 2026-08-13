@@ -12,6 +12,7 @@
   --bg: #0a0a0c;              /* window / deepest */
   --bg-app: #101013;          /* main workspace */
   --surface-1: #15151a;       /* sidebar, panels, cards */
+  --sidebar-bg: #15151a;      /* sidebar (Codex uses distinct bg in light) */
   --surface-2: #1b1b21;       /* inputs, popovers, tool cards */
   --surface-3: #212129;       /* hover */
   --surface-4: #26262e;       /* active / pressed */
@@ -126,6 +127,7 @@
   --bg: #ececef;
   --bg-app: #ffffff;
   --surface-1: #ffffff;
+  --sidebar-bg: #f0f0f0;
   --surface-2: #f5f5f7;
   --surface-3: #ececef;
   --surface-4: #e4e4e8;

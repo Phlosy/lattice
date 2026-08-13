@@ -121,7 +121,42 @@ export function ThreadView() {
             <div className="block-body">{transcript.lastError}</div>
           </div>
         )}
+        <FileChanges />
         <div ref={endRef} />
+      </div>
+    </div>
+  );
+}
+
+/** Codex-style inline file-change summary (path +N -M) after the agent runs. */
+function FileChanges() {
+  const gitStatus = useApp((s) => s.gitStatus);
+  const togglePanel = useApp((s) => s.togglePanel);
+  if (!gitStatus || gitStatus.clean || gitStatus.files.length === 0) return null;
+  return (
+    <div className="file-changes">
+      <div className="file-changes-head" onClick={() => togglePanel("git")}>
+        <span className="chev">⑂</span>
+        <span>{gitStatus.files.length} files changed</span>
+        <span className="diff-total">
+          +{gitStatus.added} −{gitStatus.removed}
+        </span>
+      </div>
+      <div className="file-changes-list">
+        {gitStatus.files.slice(0, 12).map((f) => (
+          <div key={f.path} className="file-change-row" onClick={() => togglePanel("git")}>
+            <span className={`fc-status ${f.index === "?" ? "untracked" : f.staged ? "staged" : "modified"}`}>
+              {f.index === "?" ? "U" : f.index === " " ? "M" : f.index.toUpperCase()}
+            </span>
+            <span className="fc-path">{f.path}</span>
+            <span className="fc-num">
+              +{f.added} −{f.removed}
+            </span>
+          </div>
+        ))}
+        {gitStatus.files.length > 12 && (
+          <div className="file-change-more">+{gitStatus.files.length - 12} more</div>
+        )}
       </div>
     </div>
   );

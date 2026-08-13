@@ -238,6 +238,8 @@ export interface GitFileStatus {
   index: string;
   workingDir: string;
   staged: boolean;
+  added: number;
+  removed: number;
 }
 
 export interface GitStatus {
@@ -246,6 +248,8 @@ export interface GitStatus {
   clean: boolean;
   ahead: number;
   behind: number;
+  added: number;
+  removed: number;
 }
 
 export interface GitCommitResult {
