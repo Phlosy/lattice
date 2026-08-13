@@ -54,14 +54,15 @@ jobs:
         shell: bash
         run: |
           set +e
-          rustc --version
-          cargo clippy --version
           cargo clippy --all-targets --message-format=short > /tmp/clippy.out 2>&1
           RC=$?
           cat /tmp/clippy.out
-          if [ $RC -ne 0 ]; then
-            echo "::error::clippy failed: $(tail -60 /tmp/clippy.out | tr '\n' ' | ' | head -c 50000)"
-          fi
+          {
+            echo "## Rust clippy (exit $RC)"
+            echo '```'
+            cat /tmp/clippy.out
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
           exit $RC
 
       - name: Rust tests
