@@ -29,10 +29,6 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - uses: swatinem/rust-cache@v2
-        with:
-          workspaces: poc/tauri-app/src-tauri
-
       - name: Install Linux system deps (Tauri)
         if: runner.os == 'Linux'
         run: |
