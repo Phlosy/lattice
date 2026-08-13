@@ -39,6 +39,11 @@ jobs:
       - name: Install npm deps
         run: npm ci --ignore-scripts
 
+      # The Tauri build script requires bundle.resources ("pi-sidecar") to
+      # exist, so build the sidecar before any cargo command.
+      - name: Build Pi sidecar
+        run: bash scripts/build-pi-sidecar.sh
+
       - name: Typecheck (frontend)
         run: npm run typecheck
 
@@ -51,19 +56,7 @@ jobs:
 
       - name: Rust clippy
         working-directory: poc/tauri-app/src-tauri
-        shell: bash
-        run: |
-          set +e
-          cargo clippy --all-targets --message-format=short > /tmp/clippy.out 2>&1
-          RC=$?
-          cat /tmp/clippy.out
-          {
-            echo "## Rust clippy (exit $RC)"
-            echo '```'
-            cat /tmp/clippy.out
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          exit $RC
+        run: cargo clippy --all-targets
 
       - name: Rust tests
         working-directory: poc/tauri-app/src-tauri
@@ -71,9 +64,6 @@ jobs:
 
       - name: Frontend build
         run: npm run build:ui
-
-      - name: Build Pi sidecar
-        run: bash scripts/build-pi-sidecar.sh
 
       - name: Rust release build
         working-directory: poc/tauri-app/src-tauri
