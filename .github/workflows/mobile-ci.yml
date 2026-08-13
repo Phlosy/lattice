@@ -42,6 +42,9 @@ jobs:
 
       - name: Rust compile check (iOS device + simulator)
         working-directory: poc/tauri-app/src-tauri
+        env:
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM || 'ABCDE12345' }}
+
         run: |
           set +e
           cargo check --target aarch64-apple-ios --message-format=short > /tmp/ios.log 2>&1
