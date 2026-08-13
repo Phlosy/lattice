@@ -55,7 +55,12 @@ jobs:
 
       - name: Rust clippy
         working-directory: poc/tauri-app/src-tauri
-        run: cargo clippy --all-targets
+        shell: bash
+        run: |
+          rustc --version
+          cargo clippy --version
+          cargo clippy --all-targets --message-format=short 2>&1 | tee /tmp/clippy.log
+          exit "${PIPESTATUS[0]}"
 
       - name: Rust tests
         working-directory: poc/tauri-app/src-tauri
