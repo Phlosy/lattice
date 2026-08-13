@@ -34,7 +34,11 @@ fn platform_dir() -> &'static str {
 }
 
 fn pi_bin_name() -> &'static str {
-    if cfg!(windows) { "pi.exe" } else { "pi" }
+    if cfg!(windows) {
+        "pi.exe"
+    } else {
+        "pi"
+    }
 }
 
 fn bundled_pi() -> Option<PathBuf> {
@@ -124,7 +128,9 @@ fn method_to_rpc(method: &str, params: &Value) -> Option<Value> {
         "model.list" => json!({ "type": "get_available_models" }),
         "model.set" => json!({ "type": "set_model", "modelId": get("modelId") }),
         "thinking.set" => json!({ "type": "set_thinking_level", "level": get("level") }),
-        "permission.respond" => json!({ "type": "extension_ui_response", "id": get("requestId"), "confirmed": get("action").as_str().map(|a| a.starts_with("allow")).unwrap_or(false) }),
+        "permission.respond" => {
+            json!({ "type": "extension_ui_response", "id": get("requestId"), "confirmed": get("action").as_str().map(|a| a.starts_with("allow")).unwrap_or(false) })
+        }
         _ => return None,
     };
     Some(cmd)
@@ -218,9 +224,12 @@ async fn handle_connection(
 #[tokio::main]
 async fn main() {
     let addr = std::env::var("LATTICE_RUNTIME_ADDR").unwrap_or_else(|_| "127.0.0.1:8787".into());
-    let token = std::env::var("LATTICE_RUNTIME_TOKEN").ok().filter(|t| !t.is_empty());
+    let token = std::env::var("LATTICE_RUNTIME_TOKEN")
+        .ok()
+        .filter(|t| !t.is_empty());
 
-    let pending: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>> = Arc::new(Mutex::new(HashMap::new()));
+    let pending: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>> =
+        Arc::new(Mutex::new(HashMap::new()));
 
     let (stdin, child, events) = match spawn_pi(Arc::clone(&pending)) {
         Ok(x) => x,
@@ -241,10 +250,15 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .unwrap_or_else(|e| panic!("bind {addr}: {e}"));
-    println!("[runtime] listening on ws://{addr} (auth: {})", if token.is_some() { "token" } else { "none" });
+    println!(
+        "[runtime] listening on ws://{addr} (auth: {})",
+        if token.is_some() { "token" } else { "none" }
+    );
 
     loop {
-        let Ok((stream, _)) = listener.accept().await else { continue };
+        let Ok((stream, _)) = listener.accept().await else {
+            continue;
+        };
         let ws = tokio_tungstenite::accept_async(stream).await;
         match ws {
             Ok(ws) => {
