@@ -1,0 +1,108 @@
+{
+  "name": "lattice",
+  "productName": "Lattice",
+  "version": "0.1.0",
+  "description": "A cross-platform desktop coding agent powered by the Pi runtime.",
+  "author": "Lattice Contributors",
+  "license": "MIT",
+  "main": "./out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "build": "electron-vite build",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "rebuild": "electron-rebuild -f -w node-pty",
+    "gen:icon": "node scripts/gen-icon.mjs",
+    "package:mac": "electron-vite build && electron-builder --mac",
+    "package:win": "electron-vite build && electron-builder --win",
+    "package:linux": "electron-vite build && electron-builder --linux"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "0.84.1",
+    "@earendil-works/pi-agent-core": "0.84.1",
+    "@earendil-works/pi-coding-agent": "0.84.1",
+    "diff": "8.0.4",
+    "node-pty": "1.1.0",
+    "simple-git": "3.36.0",
+    "typebox": "1.3.7"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "3.7.2",
+    "@types/diff": "7.0.2",
+    "@types/node": "22.19.19",
+    "@types/react": "19.0.8",
+    "@types/react-dom": "19.0.3",
+    "@vitejs/plugin-react": "4.4.1",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/addon-web-links": "0.12.0",
+    "@xterm/xterm": "6.0.0",
+    "electron": "43.4.0",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-markdown": "9.0.3",
+    "remark-gfm": "4.0.1",
+    "typescript": "5.9.3",
+    "vite": "6.2.0",
+    "vitest": "3.0.8",
+    "zustand": "5.0.3"
+  },
+  "build": {
+    "appId": "dev.lattice.desktop",
+    "productName": "Lattice",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": [
+      "out/**/*",
+      "!**/.map"
+    ],
+    "asarUnpack": [
+      "**/*.node",
+      "node_modules/node-pty/**/*",
+      "node_modules/@earendil-works/**/*",
+      "node_modules/@silvia-odwyer/**/*"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "allowScripts": {
+    "node-pty@1.1.0": true,
+    "electron@43.4.0": true,
+    "esbuild@0.25.12": true,
+    "protobufjs@7.6.5": true,
+    "@google/genai@1.52.0": true,
+    "electron-winstaller@5.4.0": true
+  }
+}
