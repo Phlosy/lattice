@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
 import { useApp } from "../store/useApp";
 import { useT } from "../i18n";
+import {
+  loadRuntimeConfig,
+  saveRuntimeConfigField,
+  subscribeRuntimeConfig,
+  type RuntimeConfig,
+  type RuntimeMode,
+} from "../lib/runtime-config";
+import { createLatticeRemote } from "../lattice-remote";
 
-type Section = "appearance" | "model" | "agent" | "about";
+type Section = "appearance" | "model" | "agent" | "runtime" | "about";
 
 export function SettingsView() {
   const t = useT();
@@ -25,6 +33,7 @@ export function SettingsView() {
     { id: "appearance" as Section, label: t("settings.appearance") },
     { id: "model" as Section, label: t("settings.model") },
     { id: "agent" as Section, label: t("settings.agent") },
+    { id: "runtime" as Section, label: t("settings.runtime") },
     { id: "about" as Section, label: t("settings.about") },
   ];
 
@@ -154,6 +163,8 @@ export function SettingsView() {
           </SectionCard>
         )}
 
+        {section === "runtime" && <RuntimeSection />}
+
         {section === "about" && (
           <SectionCard title={t("settings.about")}>
             <p className="desc" style={{ marginBottom: 0 }}>
@@ -172,5 +183,139 @@ function SectionCard({ title, children }: { title: string; children: React.React
       <h2 className="settings-section-title">{title}</h2>
       <div className="section-card">{children}</div>
     </div>
+  );
+}
+
+function RuntimeSection() {
+  const t = useT();
+  const [config, setConfig] = useState<RuntimeConfig>(() => loadRuntimeConfig());
+  const [url, setUrl] = useState(config.remoteUrl);
+  const [token, setToken] = useState(config.remoteToken);
+  const [savedField, setSavedField] = useState<"url" | "token" | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<"ok" | "fail" | null>(null);
+
+  useEffect(
+    () =>
+      subscribeRuntimeConfig((next) => {
+        setConfig(next);
+        setUrl(next.remoteUrl);
+        setToken(next.remoteToken);
+      }),
+    [],
+  );
+
+  const saveField = (key: "remoteUrl" | "remoteToken", value: string) => {
+    saveRuntimeConfigField(key, value);
+    setSavedField(key === "remoteUrl" ? "url" : "token");
+  };
+
+  const testConnection = async () => {
+    if (!url.trim()) return;
+    setTesting(true);
+    setTestResult(null);
+    const remote = createLatticeRemote({
+      url: url.trim(),
+      token: token.trim() || undefined,
+    });
+    try {
+      await Promise.race([
+        remote.getProviders(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000)),
+      ]);
+      setTestResult("ok");
+    } catch {
+      setTestResult("fail");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <SectionCard title={t("settings.runtime")}>
+      <div className="field">
+        <label>{t("settings.runtimeMode")}</label>
+        <select
+          value={config.mode}
+          onChange={(e) => saveRuntimeConfigField("mode", e.target.value as RuntimeMode)}
+        >
+          <option value="local">{t("settings.runtimeLocal")}</option>
+          <option value="remote">{t("settings.runtimeRemote")}</option>
+        </select>
+      </div>
+      <p className="desc">
+        {config.mode === "remote"
+          ? t("settings.runtimeRemoteNote")
+          : t("settings.runtimeLocalNote")}
+      </p>
+
+      {config.mode === "remote" && (
+        <>
+          <div className="field">
+            <label>{t("settings.runtimeUrl")}</label>
+            <input
+              value={url}
+              placeholder="wss://host:8787"
+              onChange={(e) => setUrl(e.target.value)}
+            />
+            <span className="hint">{t("settings.runtimeUrlHint")}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+              <button className="btn btn-sm" onClick={() => saveField("remoteUrl", url)}>
+                {t("settings.save")}
+              </button>
+              {savedField === "url" && <span className="hint">{t("settings.runtimeSaved")}</span>}
+            </div>
+          </div>
+
+          <div className="field">
+            <label>{t("settings.runtimeToken")}</label>
+            <input
+              type="password"
+              value={token}
+              placeholder="token"
+              onChange={(e) => setToken(e.target.value)}
+            />
+            <span className="hint">{t("settings.runtimeTokenHint")}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+              <button className="btn btn-sm" onClick={() => saveField("remoteToken", token)}>
+                {t("settings.save")}
+              </button>
+              {savedField === "token" && <span className="hint">{t("settings.runtimeSaved")}</span>}
+            </div>
+          </div>
+
+          <div className="field">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                className="btn btn-sm"
+                disabled={testing || !url.trim()}
+                onClick={() => void testConnection()}
+              >
+                {testing ? t("settings.runtimeTesting") : t("settings.runtimeTest")}
+              </button>
+              {testResult === "ok" && (
+                <span className="hint" style={{ color: "var(--success, #3fb950)" }}>
+                  {t("settings.runtimeOk")}
+                </span>
+              )}
+              {testResult === "fail" && (
+                <span className="hint" style={{ color: "var(--danger, #f85149)" }}>
+                  {t("settings.runtimeFail")}
+                </span>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="field">
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button className="btn btn-sm btn-primary" onClick={() => window.location.reload()}>
+            {t("settings.runtimeReconnect")}
+          </button>
+          <span className="hint">{t("settings.runtimeReconnectHint")}</span>
+        </div>
+      </div>
+    </SectionCard>
   );
 }

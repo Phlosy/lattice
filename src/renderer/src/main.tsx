@@ -6,6 +6,7 @@ import { useApp } from "./store/useApp";
 import { createLatticeStub } from "./lattice-stub";
 import { createLatticeTauri } from "./lattice-tauri";
 import { createLatticeRemote } from "./lattice-remote";
+import { loadRuntimeConfig } from "./lib/runtime-config";
 import "./styles/tokens.css";
 
 // Type declaration for the preload-exposed API.
@@ -16,9 +17,6 @@ declare global {
   }
 }
 
-const RUNTIME_URL_KEY = "lattice.runtime.url";
-const RUNTIME_TOKEN_KEY = "lattice.runtime.token";
-
 function isMobileWebView(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
@@ -26,13 +24,17 @@ function isMobileWebView(): boolean {
 function selectAdapter(): LatticeApi {
   const tauri = (window as unknown as { __TAURI__?: unknown }).__TAURI__;
   if (!tauri) return createLatticeStub();
-  // Mobile (Android/iOS WebView): the Tauri shell cannot spawn a local Pi
-  // sidecar, so use the Remote adapter when a runtime host is configured.
-  if (isMobileWebView()) {
-    const url = localStorage.getItem(RUNTIME_URL_KEY);
-    const token = localStorage.getItem(RUNTIME_TOKEN_KEY) ?? undefined;
-    return url ? createLatticeRemote({ url, token }) : createLatticeStub();
+  const config = loadRuntimeConfig();
+  // Remote mode: route all LatticeApi traffic over WebSocket to a Runtime Host,
+  // whether on desktop or mobile. A URL is required to select it.
+  if (config.mode === "remote" && config.remoteUrl) {
+    return createLatticeRemote({
+      url: config.remoteUrl,
+      token: config.remoteToken || undefined,
+    });
   }
+  // Local mode. Mobile cannot spawn a local Pi sidecar, so fall back to stub.
+  if (isMobileWebView()) return createLatticeStub();
   return createLatticeTauri();
 }
 

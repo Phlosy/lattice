@@ -88,9 +88,16 @@ if [[ "$PLATFORM" == darwin-* ]]; then
   SIGNING_IDENTITY="${APPLE_SIGNING_IDENTITY:--}"
   echo "==> Signing Pi sidecar with identity '$SIGNING_IDENTITY'..."
   if [[ "$SIGNING_IDENTITY" == "-" ]]; then
-    codesign --force --options runtime --timestamp=none --sign - "$OUT/$BIN"
+    # Plain ad-hoc signature. Bun's runtime (JavaScriptCore) requires JIT, and
+    # hardened runtime without an allow-jit entitlement would freeze/crash it.
+    # No hardened runtime for ad-hoc internal builds.
+    codesign --force --sign - "$OUT/$BIN"
   else
-    codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$OUT/$BIN"
+    # Developer ID distribution requires hardened runtime for notarization, so
+    # attach the allow-jit + library-validation entitlements Bun needs.
+    codesign --force --options runtime --timestamp \
+      --entitlements "$ROOT/poc/tauri-app/src-tauri/entitlements/pi-sidecar.plist" \
+      --sign "$SIGNING_IDENTITY" "$OUT/$BIN"
   fi
   codesign --verify --strict --verbose=2 "$OUT/$BIN"
   SIGNATURE_DETAILS="$(codesign -dv --verbose=4 "$OUT/$BIN" 2>&1)"

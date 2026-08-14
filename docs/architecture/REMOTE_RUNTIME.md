@@ -118,8 +118,10 @@ Mobile stores credential (keychain), reconnects without re-pairing
 ## Status
 
 - [x] Architecture defined (this document)
-- [ ] RemotePiRuntimeAdapter (React, WSS client)
-- [ ] Runtime Host (Rust, WebSocket server)
-- [ ] Secure pairing (token/QR + device credentials)
+- [x] RemotePiRuntimeAdapter (React, WSS client; reconnect + image forwarding)
+- [x] Runtime Host (Rust, WebSocket server) — Pi RPC + workspace/git/settings/session/projects/files
+- [x] Local/remote runtime mode with in-app settings (per-field remote URL/token save, connection test, reconnect)
+- [x] Mobile UX layout classes (Phone / Tablet / Desktop)
+- [ ] Secure pairing (one-time token/QR + revocable device credentials) — static token auth only for now
+- [ ] Terminal (PTY) and extension install/remove over the remote host
 - [ ] Tauri Android / iOS build
-- [ ] Mobile UX (Phone / Tablet / Desktop layout classes)

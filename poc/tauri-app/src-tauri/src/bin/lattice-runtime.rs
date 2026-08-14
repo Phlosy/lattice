@@ -8,7 +8,7 @@
 //!   host → client:  { "type": "response", "id": "r1", "data": {...} }
 //!   host → client:  { "type": "event", "event": "pi-event", "payload": {...} }
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -23,7 +23,9 @@ use tokio_tungstenite::tungstenite::Message;
 const PI_ENTRY: &str = "node_modules/@earendil-works/pi-coding-agent/dist/cli.js";
 
 fn session_dir() -> PathBuf {
-    std::env::temp_dir().join("pi-runtime-sessions")
+    // Share the Desktop Core session directory so the headless host and the
+    // desktop app list/open the same JSONL history.
+    poctauri_app_lib::paths::session_dir()
 }
 
 fn platform_dir() -> &'static str {
@@ -81,9 +83,8 @@ fn spawn_pi(pending: PendingRequests) -> Result<SpawnedPi, String> {
         (c, "poc/tauri-app/extensions/permission-gate.ts".to_string())
     };
 
-    let session_dir = session_dir();
-    std::fs::create_dir_all(&session_dir)
-        .map_err(|e| format!("create runtime session directory: {e}"))?;
+    let session_dir = poctauri_app_lib::paths::prepare_session_dir()
+        .map_err(|e| format!("prepare runtime session directory: {e}"))?;
     let mut child = cmd
         .arg("--mode")
         .arg("rpc")
@@ -141,8 +142,11 @@ fn method_to_rpc(method: &str, params: &Value) -> Option<Value> {
         "steer" => json!({ "type": "steer", "message": get("text") }),
         "follow_up" => json!({ "type": "follow_up", "message": get("text") }),
         "abort" => json!({ "type": "abort" }),
+        "continue" => json!({ "type": "continue" }),
         "session.state" => json!({ "type": "get_state" }),
         "session.create" => json!({ "type": "new_session" }),
+        "session.open" => json!({ "type": "switch_session", "sessionPath": get("file") }),
+        "session.rename" => json!({ "type": "set_session_name", "name": get("name") }),
         "model.list" => json!({ "type": "get_available_models" }),
         "model.set" => {
             json!({ "type": "set_model", "provider": get("providerId"), "modelId": get("modelId") })
@@ -154,6 +158,93 @@ fn method_to_rpc(method: &str, params: &Value) -> Option<Value> {
         _ => return None,
     };
     Some(cmd)
+}
+
+/// Dispatch the methods that are not Pi RPC commands but plain Desktop Core
+/// functions (workspace, git, settings, session metadata, extension list,
+/// projects). The host runs them directly on the remote machine.
+fn method_to_local(method: &str, params: &Value) -> Option<Result<Value, String>> {
+    let p = params.as_object().cloned().unwrap_or_default();
+    let get_s = |k: &str| p.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let get = |k: &str| p.get(k).cloned().unwrap_or(Value::Null);
+    let first_path = || {
+        get("paths")
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+            .unwrap_or_else(|| get_s("file"))
+    };
+
+    macro_rules! plain {
+        ($expr:expr) => {
+            Some($expr.map(|v| serde_json::to_value(v).unwrap_or(Value::Null)))
+        };
+    }
+
+    match method {
+        "session.list" => plain!(poctauri_app_lib::session::list_sessions_in(&session_dir())),
+        "session.messages" => {
+            let id = get_s("sessionId");
+            let file = poctauri_app_lib::session::list_sessions_in(&session_dir())
+                .ok()
+                .and_then(|sessions| sessions.into_iter().find(|s| s.id == id))
+                .map(|s| s.file);
+            match file {
+                Some(file) => plain!(poctauri_app_lib::session::session_messages(file)),
+                None => Some(Err(format!("session not found: {id}"))),
+            }
+        }
+        "files.list" => plain!(poctauri_app_lib::workspace::list_files(get_s("cwd"), 400)),
+        "git.status" => plain!(poctauri_app_lib::git::git_status(get_s("cwd"))),
+        "git.diff" => plain!(poctauri_app_lib::git::git_diff(get_s("cwd"), first_path())),
+        "git.commit" => plain!(poctauri_app_lib::git::git_commit(
+            get_s("cwd"),
+            get_s("message")
+        )),
+        "git.branches" => plain!(poctauri_app_lib::git::git_branches(get_s("cwd"))),
+        "git.checkout" => plain!(poctauri_app_lib::git::git_checkout(
+            get_s("cwd"),
+            get_s("branch")
+        )),
+        "git.worktrees" => plain!(poctauri_app_lib::git::git_worktrees(get_s("cwd"))),
+        "git.create_worktree" => {
+            plain!(poctauri_app_lib::git::git_create_worktree(
+                get_s("cwd"),
+                get_s("branch"),
+                get_s("path")
+            ))
+        }
+        "settings.get" => plain!(poctauri_app_lib::settings::get_settings()),
+        "settings.set" => plain!(poctauri_app_lib::settings::set_settings(get("patch"))),
+        "ext.list" => plain!(poctauri_app_lib::marketplace::ext_list()),
+        "ext.toggle" => plain!(poctauri_app_lib::marketplace::ext_toggle(
+            get_s("source"),
+            p.get("enabled").and_then(|v| v.as_bool()).unwrap_or(false),
+        )),
+        "project.list" => plain!(Ok(poctauri_app_lib::projects::get_projects())),
+        "project.remove" => plain!(poctauri_app_lib::projects::remove_project(get_s("path"))),
+        _ => None,
+    }
+}
+
+fn providers_from_models(runtime: &Arc<Runtime>) -> Result<Value, String> {
+    let data = request_rpc(runtime, &json!({ "type": "get_available_models" }))?;
+    let models = data
+        .get("models")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let mut seen = BTreeSet::new();
+    let mut providers = Vec::new();
+    for model in models {
+        if let Some(id) = model.get("provider").and_then(|v| v.as_str()) {
+            if seen.insert(id.to_string()) {
+                providers.push(json!({ "id": id, "name": id, "hasAuth": true }));
+            }
+        }
+    }
+    serde_json::to_value(providers).map_err(|e| e.to_string())
 }
 
 fn send_rpc(runtime: &Arc<Runtime>, cmd: &Value) -> Result<(), String> {
@@ -212,20 +303,26 @@ async fn handle_connection(
                         let Some(method) = msg.get("method").and_then(|m| m.as_str()) else { continue };
                         let id = msg.get("id").cloned().unwrap_or(Value::Null);
                         let params = msg.get("params").cloned().unwrap_or(json!({}));
-                        if let Some(cmd) = method_to_rpc(method, &params) {
-                            let resp = if matches!(method, "prompt" | "steer" | "follow_up" | "abort" | "permission.respond") {
+
+                        let response: Result<Value, String> = if let Some(cmd) = method_to_rpc(method, &params) {
+                            if matches!(method, "prompt" | "steer" | "follow_up" | "abort" | "continue" | "permission.respond") {
                                 send_rpc(&runtime, &cmd).map(|_| json!(true))
                             } else {
                                 request_rpc(&runtime, &cmd)
-                            };
-                            let out = match resp {
-                                Ok(data) => json!({"type":"response","id":id,"data":data}),
-                                Err(e) => json!({"type":"response","id":id,"error":e}),
-                            };
-                            let _ = sink.send(Message::Text(out.to_string())).await;
+                            }
+                        } else if method == "model.providers" {
+                            providers_from_models(&runtime)
+                        } else if let Some(result) = method_to_local(method, &params) {
+                            result
                         } else {
-                            let _ = sink.send(Message::Text(json!({"type":"response","id":id,"error":"unknown method"}).to_string())).await;
-                        }
+                            Err(format!("unknown method: {method}"))
+                        };
+
+                        let out = match response {
+                            Ok(data) => json!({"type":"response","id":id,"data":data}),
+                            Err(e) => json!({"type":"response","id":id,"error":e}),
+                        };
+                        let _ = sink.send(Message::Text(out.to_string())).await;
                     }
                     Some(Ok(Message::Close(_))) | None => break,
                     _ => {}
