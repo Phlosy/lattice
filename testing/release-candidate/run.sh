@@ -42,3 +42,6 @@ else
   echo "After quitting, verify no leftover sidecar:"
   echo "  ps -axo command | grep 'pi --mode rpc' | grep -v grep   # empty = OK"
 fi
+
+echo "==> Cleaning test residue"
+bash "$ROOT/scripts/clean-test-residue.sh"

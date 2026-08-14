@@ -45,7 +45,7 @@ export function TopBar({ onMenu }: { onMenu?: () => void }) {
         <div ref={thinkPop.ref} style={{ position: "relative" }}>
           <button
             className="picker-btn"
-            disabled={!sessionState?.model?.reasoning}
+            disabled={!sessionState}
             onClick={() => thinkPop.setOpen((v) => !v)}
           >
             {thinking}

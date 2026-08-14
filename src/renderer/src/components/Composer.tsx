@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ArrowUp, ImagePlus, Square } from "lucide-react";
 import { useApp } from "../store/useApp";
 import { useT } from "../i18n";
 
@@ -183,15 +184,7 @@ export function Composer() {
             aria-label="Attach image"
             onClick={() => fileRef.current?.click()}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path
-                d="M11.5 6.5 8 10a2.12 2.12 0 0 1-3-3l3.5-3.5a3.18 3.18 0 0 1 4.5 4.5L9.5 11.5a4.24 4.24 0 0 1-6-6l3.5-3.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <ImagePlus size={16} strokeWidth={1.8} aria-hidden="true" />
           </button>
           <input
             ref={fileRef}
@@ -217,7 +210,7 @@ export function Composer() {
           />
           {running ? (
             <button className="stop-btn" onClick={() => void abort()} data-tooltip={`${t("composer.stop")} (Esc)`}>
-              <span className="stop-icon" />
+              <Square size={13} fill="currentColor" strokeWidth={0} aria-hidden="true" />
             </button>
           ) : (
             <button
@@ -226,20 +219,17 @@ export function Composer() {
               disabled={(!text.trim() && attachments.length === 0) || disabled}
               data-tooltip={`${t("composer.send")} (⏎)`}
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <path d="M7 2v10M3 6l4-4 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <ArrowUp size={15} strokeWidth={2.2} aria-hidden="true" />
             </button>
           )}
         </div>
         <div className="composer-hint">
-          <span>
-            <kbd>⏎</kbd> {t("composer.send")} · <kbd>⇧⏎</kbd> {t("composer.newline")} · <kbd>@</kbd> file · <kbd>⌘V</kbd> image
-          </span>
-          {running && (
+          {running ? (
             <span className="queue">
               {queueCount > 0 ? `${queueCount} ${t("composer.queued")}` : t("composer.working")}
             </span>
+          ) : (
+            <span />
           )}
           <span className="spacer" />
           {sessionState?.model && (

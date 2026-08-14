@@ -47,6 +47,18 @@ fn kind_of(path: &str) -> &'static str {
 
 /// Record a project into recents (called by open_project).
 pub fn record_project(path: &str) {
+    // Skip throwaway test projects (OS temp dirs, E2E scaffolding) so they
+    // never pollute the user's recent-projects list.
+    let candidate = PathBuf::from(path);
+    let file_name = candidate.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let is_throwaway = candidate.starts_with(std::env::temp_dir())
+        || candidate.starts_with("/tmp")
+        || candidate.starts_with("/var/folders")
+        || file_name.starts_with("lattice-ws-test");
+    if is_throwaway {
+        return;
+    }
+
     let name = PathBuf::from(path)
         .file_name()
         .map(|n| n.to_string_lossy().to_string())

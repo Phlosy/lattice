@@ -274,9 +274,14 @@ body[data-platform="darwin"] .sidebar-header {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* Recent projects scroll instead of pushing the session list + footer off. */
+  max-height: 42%;
+  overflow-y: auto;
 }
 .sidebar-section.grow {
   flex: 1;
+  max-height: none;
+  overflow: hidden;
 }
 
 .sidebar-section-title {
@@ -1351,8 +1356,8 @@ kbd {
   flex: 1;
   min-height: 0;
   padding: var(--sp-2);
-  /* Terminal stays dark regardless of app theme (Codex-style). */
-  background: #0c0d11;
+  /* Follow the app theme (dark/light). */
+  background: var(--surface-inset);
 }
 .terminal-host .xterm {
   height: 100%;

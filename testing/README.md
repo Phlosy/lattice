@@ -20,3 +20,16 @@ testing/artifacts/
 The actual toolchain build outputs (`dist/`, `src-tauri/target/`,
 `src-tauri/pi-sidecar/`, `node_modules/`) stay where the tools require them and
 are all covered by `.gitignore` (root + `src-tauri/.gitignore`).
+
+## Cleanup
+
+Every test run leaves residue (throwaway recent-projects, session files, temp
+dirs). `run.sh` cleans up automatically; you can also run it manually:
+
+```bash
+bash scripts/clean-test-residue.sh
+```
+
+It prunes temp/test projects from `~/.lattice/state.json`, removes leftover
+session files, and clears `testing/artifacts/dev/` — while keeping key results
+(`testing/artifacts/release/` and your user settings).

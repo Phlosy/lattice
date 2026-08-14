@@ -55,7 +55,10 @@ export function ModelPicker({
   }, [open]);
 
   const model = sessionState?.model;
-  const disabled = !activeSessionId;
+  // Keep the picker clickable whenever models are available. Setting a model
+  // still requires an active session (guarded in the store), but browsing the
+  // list should never be blocked.
+  const disabled = models.length === 0;
   const filtered = query.trim()
     ? models.filter(
         (m) =>
