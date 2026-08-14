@@ -18,9 +18,9 @@
   --surface-4: #26262e;       /* active / pressed */
   --surface-inset: #0e0e12;   /* recessed areas (terminal, diff) */
 
-  /* Terminal semantic aliases (consume these, not hex) */
-  --terminal-bg: var(--surface-inset);
-  --terminal-fg: var(--text-primary);
+  /* Terminal semantic surface (matches lib/terminal-theme.ts backgrounds) */
+  --terminal-bg: #0e0e12;
+  --terminal-fg: #ececef;
 
   /* ---- Borders ------------------------------------------------------------ */
   --border: #26262e;
@@ -136,6 +136,8 @@
   --surface-3: #ececef;
   --surface-4: #e4e4e8;
   --surface-inset: #f0f0f3;
+  --terminal-bg: #ffffff;
+  --terminal-fg: #19191d;
   --border: #dfdfe4;
   --border-subtle: #ececf0;
   --border-strong: #c9c9d0;

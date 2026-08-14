@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowUp, ImagePlus, Square } from "lucide-react";
+import { ArrowUp, FileCode, FilePlus, ImagePlus, Plus, Square } from "lucide-react";
 import { useApp } from "../store/useApp";
 import { useT } from "../i18n";
 
@@ -16,6 +16,7 @@ export function Composer() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [fileList, setFileList] = useState<string[]>([]);
   const [atQuery, setAtQuery] = useState<string | null>(null);
+  const [attachOpen, setAttachOpen] = useState(false);
   const prompt = useApp((s) => s.prompt);
   const abort = useApp((s) => s.abort);
   const running = useApp((s) => s.transcript.running);
@@ -27,6 +28,7 @@ export function Composer() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const attachRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (currentProject) {
@@ -45,6 +47,23 @@ export function Composer() {
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, window.innerHeight * 0.4)}px`;
   }, [text]);
+
+  // Close the attachment menu on outside click / Escape.
+  useEffect(() => {
+    if (!attachOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (attachRef.current && !attachRef.current.contains(e.target as Node)) setAttachOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAttachOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [attachOpen]);
 
   const addImage = (file: File) => {
     const reader = new FileReader();
@@ -121,6 +140,12 @@ export function Composer() {
     textareaRef.current?.focus();
   };
 
+  const insertSnippet = () => {
+    const fence = "```\n\n```";
+    setText((prev) => (prev === "" || prev.endsWith("\n") ? prev + fence : prev + "\n" + fence));
+    textareaRef.current?.focus();
+  };
+
   const filteredFiles = atQuery !== null && atQuery.length > 0
     ? fileList.filter((f) => f.toLowerCase().includes(atQuery.toLowerCase())).slice(0, 8)
     : atQuery !== null
@@ -178,14 +203,51 @@ export function Composer() {
         )}
 
         <div className="composer-box">
-          <button
-            className="attach-btn"
-            data-tooltip="Attach image"
-            aria-label="Attach image"
-            onClick={() => fileRef.current?.click()}
-          >
-            <ImagePlus size={16} strokeWidth={1.8} aria-hidden="true" />
-          </button>
+          <div className="attach-wrap" ref={attachRef} style={{ position: "relative" }}>
+            <button
+              className="attach-btn"
+              data-tooltip="Add attachment"
+              aria-label="Add attachment"
+              onClick={() => setAttachOpen((v) => !v)}
+            >
+              <Plus size={16} strokeWidth={2} aria-hidden="true" />
+            </button>
+            {attachOpen && (
+              <div className="popover attach-menu" style={{ bottom: "calc(100% + 6px)", left: 0, minWidth: 208 }}>
+                <div className="popover-header">Add attachment</div>
+                <div className="popover-list">
+                  <button
+                    className="popover-item"
+                    onClick={() => {
+                      setAttachOpen(false);
+                      fileRef.current?.click();
+                    }}
+                  >
+                    <ImagePlus size={15} /> <span>Image</span>
+                  </button>
+                  <button
+                    className="popover-item"
+                    onClick={() => {
+                      setAttachOpen(false);
+                      setAtQuery("");
+                      textareaRef.current?.focus();
+                    }}
+                  >
+                    <FilePlus size={15} /> <span>File / context</span>
+                  </button>
+                  <button
+                    className="popover-item"
+                    onClick={() => {
+                      setAttachOpen(false);
+                      insertSnippet();
+                    }}
+                  >
+                    <FileCode size={15} /> <span>Code snippet</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <input
             ref={fileRef}
             type="file"

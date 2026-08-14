@@ -5,44 +5,7 @@ import "@xterm/xterm/css/xterm.css";
 import { useApp } from "../store/useApp";
 import { useT } from "../i18n";
 import { getTerminalBuffer } from "../lib/terminal-buffer";
-
-// xterm.js color themes matching the app's design tokens (dark + light).
-const XTERM_THEMES = {
-  dark: {
-    background: "#0e0e12",
-    foreground: "#d5d5dc",
-    cursor: "#7aa2ff",
-    cursorAccent: "#0e0e12",
-    selectionBackground: "rgba(122, 162, 255, 0.28)",
-    black: "#16171c",
-    brightBlack: "#4a4b55",
-    red: "#e5484d",
-    green: "#46a758",
-    yellow: "#d9a62e",
-    blue: "#6ea8fe",
-    magenta: "#b48ead",
-    cyan: "#5aa9c4",
-    white: "#ececef",
-    brightWhite: "#ffffff",
-  },
-  light: {
-    background: "#f0f0f3",
-    foreground: "#19191d",
-    cursor: "#2f6fdc",
-    cursorAccent: "#ffffff",
-    selectionBackground: "rgba(47, 111, 220, 0.2)",
-    black: "#e4e4e8",
-    brightBlack: "#b2b2ba",
-    red: "#d4373c",
-    green: "#2f8a46",
-    yellow: "#a67c00",
-    blue: "#2f6fdc",
-    magenta: "#9b4f9e",
-    cyan: "#1f7a8c",
-    white: "#19191d",
-    brightWhite: "#000000",
-  },
-} as const;
+import { terminalThemeFor } from "../lib/terminal-theme";
 
 export function TerminalPanel() {
   const t = useT();
@@ -73,7 +36,7 @@ export function TerminalPanel() {
       cursorStyle: "bar",
       cursorBlink: true,
       cursorWidth: 1,
-      theme: XTERM_THEMES[theme],
+      theme: terminalThemeFor(theme),
       scrollback: 4000,
       allowProposedApi: true,
     });
@@ -114,11 +77,17 @@ export function TerminalPanel() {
     };
   }, [activeId]);
 
-  // Re-theme the live terminal without recreating it (xterm needs a new
-  // theme object identity to repaint).
   useEffect(() => {
     const term = termRef.current;
-    if (term) term.options.theme = { ...XTERM_THEMES[theme] };
+    if (term) {
+      // New object identity is required for xterm to repaint.
+      term.options.theme = { ...terminalThemeFor(theme) };
+      try {
+        fitRef.current?.fit();
+      } catch {
+        /* ignore */
+      }
+    }
   }, [theme]);
 
   if (terminals.length === 0) {

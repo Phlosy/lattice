@@ -942,6 +942,12 @@ body[data-platform="darwin"] .sidebar-header {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
+  /* Floating surface — clearly elevated above the conversation. */
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-2) var(--sp-3);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Project / branch context above the input (Codex-style) */
@@ -1090,7 +1096,7 @@ body[data-platform="darwin"] .sidebar-header {
   color: var(--text-primary);
 }
 
-/* Attachment button — Codex uses an orange paperclip icon */
+/* Attachment button — unified "add attachment" entry (+) */
 .attach-btn {
   flex-shrink: 0;
   width: 28px;
@@ -1098,15 +1104,16 @@ body[data-platform="darwin"] .sidebar-header {
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: #d25f28;
+  color: var(--text-muted);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--dur-fast) var(--ease);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .attach-btn:hover {
   background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 /* Send button — circular, dark/primary, dims when no text (Codex-style) */
@@ -1307,6 +1314,14 @@ kbd {
 .terminal-host .xterm {
   height: 100%;
   width: 100%;
+}
+/* xterm.css hardcodes a black viewport; make it transparent so the themed
+   `.terminal-host` surface shows through the partial-row gap at the bottom. */
+.terminal-host .xterm .xterm-viewport {
+  background-color: transparent;
+}
+.terminal-host .xterm .xterm-screen {
+  background-color: transparent;
 }
 
 /* ---- Popover / dropdown ------------------------------------------------------ */
