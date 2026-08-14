@@ -64,4 +64,13 @@ export const workbenchCommands = {
     localStorage.removeItem(LAYOUT_STORAGE_KEY);
     window.location.reload();
   },
+
+  /** Update a view tab's displayed title (e.g. session name, terminal cwd). */
+  updateViewTitle(tabId: string, title: string): void {
+    if (!boundModel) return;
+    const node = boundModel.getNodeById(tabId);
+    if (node?.getType() === "tab" && (node as TabNode).getName() !== title) {
+      boundModel.doAction(Actions.updateNodeAttributes(tabId, { name: title }));
+    }
+  },
 };

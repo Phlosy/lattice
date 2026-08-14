@@ -19,11 +19,16 @@ function factory(node: TabNode): React.ReactNode {
 }
 
 export function DockWorkbench() {
-  const model = useMemo(() => createWorkbenchModel(), []);
+  // Bind the model synchronously (during render) so view effects can update
+  // tab titles on their first mount.
+  const model = useMemo(() => {
+    const m = createWorkbenchModel();
+    bindWorkbenchModel(m);
+    return m;
+  }, []);
   const saveTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    bindWorkbenchModel(model);
     const listener = () => {
       window.clearTimeout(saveTimer.current);
       saveTimer.current = window.setTimeout(() => {

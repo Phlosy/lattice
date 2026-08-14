@@ -24,14 +24,17 @@ tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-
-# Desktop-only: portable-pty (termios/ioctl) and the Runtime Host (tokio WSS)
-# do not build on iOS/Android. Mobile is a Remote Runtime Client.
-[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
-portable-pty = "0.8"
+# tokio/tokio-tungstenite/futures-util compile on iOS/Android too; the Runtime
+# Host binary (`lattice-runtime`) imports them unconditionally, so keep them in
+# the common dependency set. Only portable-pty is genuinely desktop-only.
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net"] }
 tokio-tungstenite = "0.24"
 futures-util = "0.3"
+
+# Desktop-only: portable-pty (termios/ioctl) does not build on iOS/Android.
+# Mobile is a Remote Runtime Client.
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
+portable-pty = "0.8"
 
 [[bin]]
 name = "lattice-runtime"
