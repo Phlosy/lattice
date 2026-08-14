@@ -5,13 +5,13 @@ import "@xterm/xterm/css/xterm.css";
 import { useApp } from "../store/useApp";
 import { useT } from "../i18n";
 import { getTerminalBuffer } from "../lib/terminal-buffer";
-import { terminalThemeFor } from "../lib/terminal-theme";
+import { useTheme, terminalThemeFor } from "../theme/theme";
 
 export function TerminalPanel() {
   const t = useT();
   const terminals = useApp((s) => s.terminals);
   const killTerminal = useApp((s) => s.killTerminal);
-  const theme = useApp((s) => s.settings.theme);
+  const theme = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);

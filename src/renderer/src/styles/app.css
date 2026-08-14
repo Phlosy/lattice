@@ -1213,47 +1213,8 @@ kbd {
 }
 
 /* ---- Dock engine (FlexLayout) theming ------------------------------------
-   `dark.css` is imported for structure; these overrides bind it to tokens. */
-.flexlayout__layout {
-  background: var(--bg-app);
-}
-.flexlayout__tabset {
-  background: var(--bg-app);
-  color: var(--text-primary);
-}
-.flexlayout__tabset_tabbar_outer {
-  background: var(--surface-1);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.flexlayout__tab_button {
-  color: var(--text-muted);
-}
-.flexlayout__tab_button:hover {
-  color: var(--text-primary);
-}
-.flexlayout__tab_button--selected {
-  color: var(--text-primary);
-  border-bottom-color: var(--accent);
-}
-.flexlayout__tab_button_trailing {
-  color: var(--text-faint);
-}
-.flexlayout__tab_toolbar_button {
-  color: var(--text-muted);
-}
-.flexlayout__tab {
-  background: var(--bg-app);
-}
-.flexlayout__splitter {
-  background: var(--border-subtle);
-}
-.flexlayout__splitter:hover,
-.flexlayout__splitter_drag {
-  background: var(--accent);
-}
-.flexlayout__tabset-selected {
-  color: var(--text-primary);
-}
+   `dark.css` is imported for structure; colors are driven by the
+   `--flexlayout-color-*` variables in tokens.css (single source of truth). */
 
 /* Terminal */
 .terminal-wrap {
