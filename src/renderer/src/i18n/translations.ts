@@ -115,6 +115,7 @@ const en = {
   "settings.about": "About",
   "settings.aboutDesc": "Lattice — a desktop coding agent powered by the Pi runtime.",
   "settings.noReasoning": "This model does not support reasoning control",
+  "settings.resetLayout": "Reset workbench layout",
 
   // Runtime (local / remote Pi)
   "settings.runtime": "Runtime",
@@ -252,6 +253,7 @@ const zh: Record<keyof typeof en, string> = {
   "settings.about": "关于",
   "settings.aboutDesc": "Lattice — 一个由 Pi 运行时驱动的桌面编码 agent。",
   "settings.noReasoning": "该模型不支持推理控制",
+  "settings.resetLayout": "重置工作台布局",
 
   "settings.runtime": "运行时",
   "settings.runtimeMode": "运行时模式",

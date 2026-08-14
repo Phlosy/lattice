@@ -9,6 +9,7 @@ import {
   type RuntimeMode,
 } from "../lib/runtime-config";
 import { createLatticeRemote } from "../lattice-remote";
+import { workbenchCommands } from "../workbench/commands";
 
 type Section = "appearance" | "model" | "agent" | "runtime" | "about";
 
@@ -170,6 +171,14 @@ export function SettingsView() {
             <p className="desc" style={{ marginBottom: 0 }}>
               {t("settings.aboutDesc")}
             </p>
+            <div className="field" style={{ marginTop: 12 }}>
+              <button
+                className="btn btn-sm"
+                onClick={() => workbenchCommands.resetLayout()}
+              >
+                {t("settings.resetLayout")}
+              </button>
+            </div>
           </SectionCard>
         )}
       </div>

@@ -21,6 +21,7 @@ import {
 } from "../lib/session-reducer";
 import { appendTerminalData, clearTerminalBuffer } from "../lib/terminal-buffer";
 import { normalizeModel } from "../lib/model";
+import { workbenchCommands } from "../workbench/commands";
 
 export type View = "chat" | "settings" | "extensions";
 export type PanelKind = "terminal" | "git";
@@ -60,8 +61,6 @@ interface AppStore {
   permissions: PermissionItem[];
   terminals: TerminalMeta[];
   gitStatus: GitStatus | null;
-  activePanel: PanelKind | null;
-  panelHeight: number;
   sidebarCollapsed: boolean;
 
   init: () => Promise<void>;
@@ -95,8 +94,6 @@ interface AppStore {
   refreshGit: () => Promise<void>;
   commit: (message: string) => Promise<void>;
   togglePanel: (kind: PanelKind) => void;
-  closePanel: () => void;
-  setPanelHeight: (height: number) => void;
   toggleSidebar: () => void;
 
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
@@ -128,8 +125,6 @@ export const useApp = create<AppStore>((set, get) => ({
   permissions: [],
   terminals: [],
   gitStatus: null,
-  activePanel: null,
-  panelHeight: 280,
   sidebarCollapsed: false,
 
   init: async () => {
@@ -207,7 +202,6 @@ export const useApp = create<AppStore>((set, get) => ({
       transcript: { ...initialTranscript },
       permissions: [],
       terminals: [],
-      activePanel: null,
       gitStatus: null,
     });
     await get().refreshSessions();
@@ -451,7 +445,8 @@ export const useApp = create<AppStore>((set, get) => ({
     const { currentProject } = get();
     const cwd = currentProject?.path ?? "";
     const meta = (await api().createTerminal(cwd)) as TerminalMeta;
-    set({ terminals: [...get().terminals, meta], activePanel: "terminal" });
+    set({ terminals: [...get().terminals, meta] });
+    workbenchCommands.openView("terminal");
   },
 
   killTerminal: async (id) => {
@@ -478,12 +473,9 @@ export const useApp = create<AppStore>((set, get) => ({
     await get().refreshGit();
   },
 
-  togglePanel: (kind) =>
-    set({ activePanel: get().activePanel === kind ? null : kind }),
-
-  closePanel: () => set({ activePanel: null }),
-
-  setPanelHeight: (height) => set({ panelHeight: Math.max(120, Math.min(height, 600)) }),
+  togglePanel: (kind) => {
+    workbenchCommands.openView(kind);
+  },
 
   toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
 
