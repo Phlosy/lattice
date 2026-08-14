@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useApp } from "../store/useApp";
 import { useT } from "../i18n";
+import { getTerminalBuffer } from "../lib/terminal-buffer";
 
 export function TerminalPanel() {
   const t = useT();
@@ -50,6 +51,8 @@ export function TerminalPanel() {
     fit.fit();
     termRef.current = term;
     fitRef.current = fit;
+    const history = getTerminalBuffer(activeId);
+    if (history) term.write(history);
 
     const onData = (e: Event) => {
       const detail = (e as CustomEvent).detail as { id: string; data: string };
@@ -90,28 +93,26 @@ export function TerminalPanel() {
 
   return (
     <div className="terminal-wrap">
-      {terminals.length > 1 && (
-        <div className="terminal-tabs">
-          {terminals.map((t) => (
-            <button
-              key={t.id}
-              className={`terminal-tab ${t.id === activeId ? "active" : ""}`}
-              onClick={() => setActiveId(t.id)}
+      <div className="terminal-tabs">
+        {terminals.map((terminal) => (
+          <button
+            key={terminal.id}
+            className={`terminal-tab ${terminal.id === activeId ? "active" : ""}`}
+            onClick={() => setActiveId(terminal.id)}
+          >
+            {terminal.title || terminal.id}
+            <span
+              className="term-close"
+              onClick={(event) => {
+                event.stopPropagation();
+                void killTerminal(terminal.id);
+              }}
             >
-              {t.title || t.id}
-              <span
-                className="term-close"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void killTerminal(t.id);
-                }}
-              >
-                ✕
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+              ✕
+            </span>
+          </button>
+        ))}
+      </div>
       <div className="terminal-host" ref={containerRef} />
     </div>
   );

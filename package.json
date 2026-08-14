@@ -1,7 +1,7 @@
 {
   "name": "lattice",
   "productName": "Lattice",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A cross-platform desktop coding agent powered by the Pi runtime.",
   "author": "Lattice Contributors",
   "license": "MIT",
@@ -22,6 +22,7 @@
     "@earendil-works/pi-agent-core": "0.84.1",
     "@earendil-works/pi-ai": "0.84.1",
     "@earendil-works/pi-coding-agent": "0.84.1",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
     "diff": "8.0.4",
     "typebox": "1.3.7"
   },
@@ -40,8 +41,8 @@
     "react-markdown": "9.0.3",
     "remark-gfm": "4.0.1",
     "typescript": "5.9.3",
-    "vite": "6.2.0",
-    "vitest": "3.0.8",
+    "vite": "^6.4.3",
+    "vitest": "^3.2.7",
     "zustand": "5.0.3"
   },
   "allowScripts": {

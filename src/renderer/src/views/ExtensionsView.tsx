@@ -71,7 +71,7 @@ export function ExtensionsView() {
                 placeholder="npm:@scope/pi-tools  ·  git:github.com/user/repo"
                 style={{ flex: 1 }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && source.trim()) void install(source.trim());
+                  if (e.key === "Enter" && source.trim() && cwd) void install(source.trim());
                 }}
               />
               <button className="btn btn-primary" onClick={() => void install(source)} disabled={!source || !cwd}>
@@ -88,7 +88,7 @@ export function ExtensionsView() {
                 placeholder="https://example.com/registry.json"
                 style={{ flex: 1 }}
               />
-              <button className="btn" onClick={() => void loadRegistry()}>
+              <button className="btn" disabled={!registryUrl.trim()} onClick={() => void loadRegistry()}>
                 {t("ext.browse")}
               </button>
             </div>
@@ -110,7 +110,11 @@ export function ExtensionsView() {
                       </div>
                       <div style={{ fontSize: 13, marginTop: 4 }}>{p.description}</div>
                     </div>
-                    <button className="btn btn-sm btn-primary" onClick={() => void install(p.source)}>
+                    <button
+                      className="btn btn-sm btn-primary"
+                      disabled={!cwd}
+                      onClick={() => void install(p.source)}
+                    >
                       {t("ext.install")}
                     </button>
                   </div>

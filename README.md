@@ -19,19 +19,20 @@ reused directly over JSONL RPC.
 ## Highlights
 
 - **Projects** — open a folder or Git repo; recent projects are remembered.
-- **Sessions / threads** — many independent sessions per project, run in parallel.
+- **Sessions / threads** — persisted independent sessions per project; one Pi
+  session runs at a time, and switching is disabled while the active run is busy.
 - **Coding agent** — streaming text, collapsible reasoning blocks, tool cards,
   live bash output, cancel / retry / continue.
-- **Permissions** — Codex-style approval for mutating tools (`bash`, `write`,
-  `edit`), with per-project "always allow" / "deny" decisions.
+- **Permissions** — Codex-style allow-once / deny approval for mutating tools
+  (`bash`, `write`, `edit`), with optional automatic approval for read-only tools.
 - **Git & diff** — status, per-file diff review, commit; git worktrees supported.
 - **Terminal** — a real PTY (Rust `portable-pty` + xterm.js) per project.
 - **Model & reasoning** — provider/model picker and thinking-level control,
   backed by Pi's `ModelRuntime` (API keys and OAuth subscriptions).
 - **Extension marketplace** — install Pi packages (extensions, skills, themes,
   prompts) from npm / git / local paths, with a VS Code-style registry protocol.
-- **Settings** — appearance, model/API, permissions, sandbox; Pi's own settings
-  are delegated to `~/.pi/agent/settings.json` (no duplicate config).
+- **Settings** — appearance, model/API, and permission preferences. Docker
+  sandbox selection is shown as unavailable until the runtime integration lands.
 
 ## Quick start
 

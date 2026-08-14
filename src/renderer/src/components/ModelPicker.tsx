@@ -25,6 +25,7 @@ export function ModelPicker({
 }) {
   const t = useT();
   const models = useApp((s) => s.models);
+  const activeSessionId = useApp((s) => s.activeSessionId);
   const sessionState = useApp((s) => s.sessionState);
   const loadModels = useApp((s) => s.loadModels);
   const setModel = useApp((s) => s.setModel);
@@ -54,6 +55,7 @@ export function ModelPicker({
   }, [open]);
 
   const model = sessionState?.model;
+  const disabled = !activeSessionId;
   const filtered = query.trim()
     ? models.filter(
         (m) =>
@@ -66,12 +68,12 @@ export function ModelPicker({
   return (
     <div ref={ref} className="model-picker" style={{ position: "relative" }}>
       {variant === "badge" ? (
-        <button className="model-badge" onClick={() => setOpen((v) => !v)}>
+        <button className="model-badge" disabled={disabled} onClick={() => setOpen((v) => !v)}>
           <span className="model-badge-name">{model ? model.name : t("topbar.selectModel")}</span>
           <span className="chev">▾</span>
         </button>
       ) : (
-        <button className="picker-btn" onClick={() => setOpen((v) => !v)}>
+        <button className="picker-btn" disabled={disabled} onClick={() => setOpen((v) => !v)}>
           {model ? model.name : t("topbar.selectModel")}
           <span className="chev">▾</span>
         </button>

@@ -21,7 +21,10 @@ use tokio::sync::broadcast;
 use tokio_tungstenite::tungstenite::Message;
 
 const PI_ENTRY: &str = "node_modules/@earendil-works/pi-coding-agent/dist/cli.js";
-const SESSION_DIR: &str = "/tmp/pi-runtime-sessions";
+
+fn session_dir() -> PathBuf {
+    std::env::temp_dir().join("pi-runtime-sessions")
+}
 
 fn platform_dir() -> &'static str {
     match (std::env::consts::OS, std::env::consts::ARCH) {
@@ -51,17 +54,19 @@ fn bundled_pi() -> Option<PathBuf> {
     p.exists().then_some(p)
 }
 
+type PendingRequests = Arc<Mutex<HashMap<String, mpsc::Sender<Result<Value, String>>>>>;
+
 struct Runtime {
     stdin: Mutex<ChildStdin>,
-    child: Mutex<Option<Child>>,
-    pending: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>,
+    _child: Mutex<Option<Child>>,
+    pending: PendingRequests,
     counter: AtomicU32,
     events: broadcast::Sender<(String, Value)>,
 }
 
-fn spawn_pi(
-    pending: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>,
-) -> Result<(ChildStdin, Child, broadcast::Sender<(String, Value)>), String> {
+type SpawnedPi = (ChildStdin, Child, broadcast::Sender<(String, Value)>);
+
+fn spawn_pi(pending: PendingRequests) -> Result<SpawnedPi, String> {
     let (tx, _rx) = broadcast::channel(256);
 
     let (mut cmd, ext) = if let Some(bin) = bundled_pi() {
@@ -76,11 +81,14 @@ fn spawn_pi(
         (c, "poc/tauri-app/extensions/permission-gate.ts".to_string())
     };
 
+    let session_dir = session_dir();
+    std::fs::create_dir_all(&session_dir)
+        .map_err(|e| format!("create runtime session directory: {e}"))?;
     let mut child = cmd
         .arg("--mode")
         .arg("rpc")
         .arg("--session-dir")
-        .arg(SESSION_DIR)
+        .arg(&session_dir)
         .arg("--approve")
         .arg("--extension")
         .arg(&ext)
@@ -102,7 +110,15 @@ fn spawn_pi(
                 if ty == "response" {
                     if let Some(id) = v["id"].as_str() {
                         if let Some(s) = pending.lock().unwrap().remove(id) {
-                            let _ = s.send(v["data"].clone());
+                            let result = if v["success"].as_bool() == Some(false) {
+                                Err(v["error"]
+                                    .as_str()
+                                    .unwrap_or("Pi RPC command failed")
+                                    .to_string())
+                            } else {
+                                Ok(v["data"].clone())
+                            };
+                            let _ = s.send(result);
                         }
                     }
                 } else {
@@ -121,14 +137,16 @@ fn method_to_rpc(method: &str, params: &Value) -> Option<Value> {
     let p = params.as_object().cloned().unwrap_or_default();
     let get = |k: &str| p.get(k).cloned().unwrap_or(Value::Null);
     let cmd = match method {
-        "prompt" => json!({ "type": "prompt", "message": get("text") }),
+        "prompt" => json!({ "type": "prompt", "message": get("text"), "images": get("images") }),
         "steer" => json!({ "type": "steer", "message": get("text") }),
         "follow_up" => json!({ "type": "follow_up", "message": get("text") }),
         "abort" => json!({ "type": "abort" }),
         "session.state" => json!({ "type": "get_state" }),
         "session.create" => json!({ "type": "new_session" }),
         "model.list" => json!({ "type": "get_available_models" }),
-        "model.set" => json!({ "type": "set_model", "modelId": get("modelId") }),
+        "model.set" => {
+            json!({ "type": "set_model", "provider": get("providerId"), "modelId": get("modelId") })
+        }
         "thinking.set" => json!({ "type": "set_thinking_level", "level": get("level") }),
         "permission.respond" => {
             json!({ "type": "extension_ui_response", "id": get("requestId"), "confirmed": get("action").as_str().map(|a| a.starts_with("allow")).unwrap_or(false) })
@@ -160,7 +178,7 @@ fn request_rpc(runtime: &Arc<Runtime>, cmd: &Value) -> Result<Value, String> {
     send_rpc(runtime, &c)?;
 
     rx.recv_timeout(std::time::Duration::from_secs(60))
-        .map_err(|e| format!("timeout: {e}"))
+        .map_err(|e| format!("timeout: {e}"))?
 }
 
 async fn handle_connection(
@@ -231,8 +249,7 @@ async fn main() {
         .ok()
         .filter(|t| !t.is_empty());
 
-    let pending: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>> =
-        Arc::new(Mutex::new(HashMap::new()));
+    let pending: PendingRequests = Arc::new(Mutex::new(HashMap::new()));
 
     let (stdin, child, events) = match spawn_pi(Arc::clone(&pending)) {
         Ok(x) => x,
@@ -244,7 +261,7 @@ async fn main() {
 
     let runtime = Arc::new(Runtime {
         stdin: Mutex::new(stdin),
-        child: Mutex::new(Some(child)),
+        _child: Mutex::new(Some(child)),
         pending,
         counter: AtomicU32::new(0),
         events,
@@ -271,6 +288,32 @@ async fn main() {
             }
             Err(e) => eprintln!("[runtime] ws handshake failed: {e}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn model_set_forwards_provider_and_model() {
+        let command = method_to_rpc(
+            "model.set",
+            &json!({ "providerId": "deepseek", "modelId": "deepseek-chat" }),
+        )
+        .unwrap();
+        assert_eq!(command["provider"], "deepseek");
+        assert_eq!(command["modelId"], "deepseek-chat");
+    }
+
+    #[test]
+    fn prompt_forwards_images() {
+        let command = method_to_rpc(
+            "prompt",
+            &json!({ "text": "inspect", "images": [{ "type": "image", "data": "abc", "mimeType": "image/png" }] }),
+        )
+        .unwrap();
+        assert_eq!(command["images"].as_array().map(Vec::len), Some(1));
     }
 }
 

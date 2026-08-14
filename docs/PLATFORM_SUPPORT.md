@@ -8,8 +8,8 @@ the app has been run on that platform/device.
 
 | Platform | Architecture | Build | Runtime | Signed | Installer |
 |---|---|---|---|---|---|
-| macOS — Apple Silicon | arm64 (`aarch64-apple-darwin`) | ✅ VERIFIED | ✅ VERIFIED (local) | ❌ unsigned | DMG |
-| macOS — Intel | x64 (`x86_64-apple-darwin`) | ✅ VERIFIED (cross) | ❌ not run | ❌ unsigned | DMG |
+| macOS — Apple Silicon | arm64 (`aarch64-apple-darwin`) | ✅ VERIFIED | ✅ VERIFIED (local) | v1.1.1+: Developer ID + notarization required by CI | DMG |
+| macOS — Intel | x64 (`x86_64-apple-darwin`) | ✅ VERIFIED (cross) | ❌ not run | v1.1.1+: Developer ID + notarization required by CI | DMG |
 | Windows x64 | x64 | ✅ VERIFIED | ❌ not run | ❌ unsigned | NSIS .exe |
 | Windows ARM64 | aarch64 (`aarch64-pc-windows-msvc`) | ⚠️ CI cross-compile | ❌ not run | ❌ unsigned | NSIS .exe |
 | Linux x86_64 | x64 | ✅ VERIFIED | ❌ not run | ❌ | AppImage / deb |
@@ -46,7 +46,10 @@ over WSS to a **Lattice Runtime Host** (see `docs/architecture/REMOTE_RUNTIME.md
 - **Mobile has no local build environment** (no full Xcode, no Android SDK/JDK
   on this machine). Mobile CI runs compile checks on GitHub runners, but no
   device/simulator RUNTIME VERIFICATION has been performed.
-- No code signing / notarization on any platform yet.
+- v1.1.0 and earlier macOS artifacts were unsigned. The v1.1.1 workflow is
+  fail-closed on Developer ID signing, notarization, Gatekeeper assessment, and
+  stapling; final signed-artifact attestation requires the credentialed release
+  job to complete successfully.
 
 ## Native dependency notes
 

@@ -27,13 +27,15 @@ export function SessionTabs() {
         return (
           <div
             key={id}
-            className={`session-tab ${active ? "active" : ""}`}
+            className={`session-tab ${active ? "active" : ""} ${running && !active ? "disabled" : ""}`}
+            aria-disabled={running && !active}
             onClick={() => void setActiveSession(id)}
           >
             <span className={`status-dot ${isRunning ? "running" : active ? "success" : ""}`} />
             <span className="tab-label">{nameOf(id)}</span>
             <span
               className="tab-close"
+              aria-disabled={running && active}
               onClick={(e) => {
                 e.stopPropagation();
                 void closeSessionTab(id);
@@ -44,7 +46,7 @@ export function SessionTabs() {
           </div>
         );
       })}
-      <button className="tab-new" data-tooltip="New session" onClick={() => void createSession()}>
+      <button className="tab-new" data-tooltip="New session" disabled={running} onClick={() => void createSession()}>
         ＋
       </button>
     </div>

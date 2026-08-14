@@ -35,21 +35,17 @@ export function PermissionDialog() {
               </div>
               <div className="perm-content">{req.command ?? req.filePath ?? req.summary}</div>
             </div>
-            <p className="perm-note">{isBash ? t("perm.bashNote") : t("perm.fileNote")}</p>
+            {(isBash || req.kind === "write" || req.kind === "edit") && (
+              <p className="perm-note">{isBash ? t("perm.bashNote") : t("perm.fileNote")}</p>
+            )}
           </div>
         </div>
         <div className="modal-foot">
           <button className="btn btn-danger" onClick={() => respond(req.requestId, "deny-once")}>
             {t("perm.deny")}
           </button>
-          <button className="btn" onClick={() => respond(req.requestId, "allow-once")}>
+          <button className="btn btn-primary" onClick={() => respond(req.requestId, "allow-once")}>
             {t("perm.allowOnce")}
-          </button>
-          <button className="btn" onClick={() => respond(req.requestId, "allow-session")}>
-            {t("perm.allowSession")}
-          </button>
-          <button className="btn btn-primary" onClick={() => respond(req.requestId, "allow-always")}>
-            {t("perm.allowAlways")}
           </button>
         </div>
       </div>

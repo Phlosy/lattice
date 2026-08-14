@@ -24,9 +24,13 @@ const IGNORED_DIRS: &[&str] = &[
 ];
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectInfo {
+    pub id: String,
     pub path: String,
     pub name: String,
+    pub kind: String,
+    pub last_opened_at: u64,
 }
 
 /// Open (validate) a project directory.
@@ -42,7 +46,22 @@ pub fn open_project(path: String) -> Result<ProjectInfo, String> {
         .filter(|n| !n.is_empty())
         .unwrap_or_else(|| path.clone());
     crate::projects::record_project(&path);
-    Ok(ProjectInfo { path, name })
+    let kind = if p.join(".git").exists() {
+        "repo"
+    } else {
+        "folder"
+    };
+    let last_opened_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0);
+    Ok(ProjectInfo {
+        id: format!("proj-{path}"),
+        path,
+        name,
+        kind: kind.into(),
+        last_opened_at,
+    })
 }
 
 /// Recursively list project files (relative paths), bounded.

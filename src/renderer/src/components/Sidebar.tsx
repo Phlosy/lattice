@@ -21,7 +21,7 @@ export function Sidebar() {
   const openProject = useApp((s) => s.openProject);
   const removeProject = useApp((s) => s.removeProject);
   const createSession = useApp((s) => s.createSession);
-  const setActiveSession = useApp((s) => s.setActiveSession);
+  const openSession = useApp((s) => s.openSession);
   const renameSession = useApp((s) => s.renameSession);
   const deleteSession = useApp((s) => s.deleteSession);
   const setView = useApp((s) => s.setView);
@@ -134,7 +134,12 @@ export function Sidebar() {
           {!collapsed && (
             <div className="sidebar-section-title">
               {t("sidebar.sessions")}
-              <button className="icon-btn" data-tooltip={t("sidebar.newSession")} onClick={() => void createSession()}>
+              <button
+                className="icon-btn"
+                data-tooltip={t("sidebar.newSession")}
+                disabled={running}
+                onClick={() => void createSession()}
+              >
                 ＋
               </button>
             </div>
@@ -165,8 +170,11 @@ export function Sidebar() {
                     />
                   ) : (
                     <div
-                      className={`item ${isActive ? "active" : ""}`}
-                      onClick={() => void setActiveSession(s.id)}
+                      className={`item ${isActive ? "active" : ""} ${running && !isActive ? "disabled" : ""}`}
+                      aria-disabled={running && !isActive}
+                      onClick={() => {
+                        if (s.file) void openSession(s.file);
+                      }}
                       data-tooltip={collapsed ? (s.name || s.id.slice(0, 8)) : undefined}
                     >
                       <span className={`status-dot ${isActive && running ? "running" : isActive ? "success" : ""}`} />
@@ -223,13 +231,13 @@ export function Sidebar() {
           ⚙
         </button>
         {collapsed ? (
-          <button className="icon-btn" data-tooltip="New session" onClick={() => void createSession()} disabled={!currentProject}>
+          <button className="icon-btn" data-tooltip="New session" onClick={() => void createSession()} disabled={!currentProject || running}>
             ＋
           </button>
         ) : (
           <>
             <div style={{ flex: 1 }} />
-            <button className="btn btn-primary btn-sm" onClick={() => void createSession()} disabled={!currentProject}>
+            <button className="btn btn-primary btn-sm" onClick={() => void createSession()} disabled={!currentProject || running}>
               ＋ {t("sidebar.new")}
             </button>
           </>

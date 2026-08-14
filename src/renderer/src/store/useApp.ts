@@ -19,9 +19,25 @@ import {
   reduceTranscript,
   type TranscriptState,
 } from "../lib/session-reducer";
+import { appendTerminalData, clearTerminalBuffer } from "../lib/terminal-buffer";
 
 export type View = "chat" | "settings" | "extensions";
 export type PanelKind = "terminal" | "git";
+
+let sessionNavigationGeneration = 0;
+let sessionNavigationQueue: Promise<void> = Promise.resolve();
+
+function enqueueSessionNavigation(
+  task: (generation: number) => Promise<void>,
+): Promise<void> {
+  const generation = ++sessionNavigationGeneration;
+  const run = sessionNavigationQueue.catch(() => {}).then(async () => {
+    if (generation !== sessionNavigationGeneration) return;
+    await task(generation);
+  });
+  sessionNavigationQueue = run;
+  return run;
+}
 
 interface PermissionItem extends PermissionRequest {
   requestId: string;
@@ -70,8 +86,8 @@ interface AppStore {
   setThinkingLevel: (level: string) => Promise<void>;
   setApiKey: (providerId: string, apiKey: string) => Promise<void>;
 
-  respondPermission: (requestId: string, action: string) => void;
-  dismissPermission: (requestId: string) => void;
+  respondPermission: (requestId: string, action: string) => Promise<void>;
+  dismissPermission: (requestId: string) => Promise<void>;
 
   createTerminal: () => Promise<void>;
   killTerminal: (id: string) => Promise<void>;
@@ -86,6 +102,7 @@ interface AppStore {
 }
 
 const api = () => window.lattice;
+let subscriptionsWired = false;
 
 export const useApp = create<AppStore>((set, get) => ({
   ready: false,
@@ -115,8 +132,11 @@ export const useApp = create<AppStore>((set, get) => ({
   sidebarCollapsed: false,
 
   init: async () => {
-    // Wire event subscriptions once.
-    api().onSessionEvent(({ sessionId, event }) => {
+    // React StrictMode mounts effects twice in development. Keep native event
+    // subscriptions process-wide so controls do not fire duplicate actions.
+    if (!subscriptionsWired) {
+      subscriptionsWired = true;
+      api().onSessionEvent(({ sessionId, event }) => {
       const s = get();
       if (sessionId !== s.activeSessionId) return;
       const next = reduceTranscript(s.transcript, event);
@@ -124,7 +144,7 @@ export const useApp = create<AppStore>((set, get) => ({
       // Refresh git status when the agent settles, so file changes surface
       // in the conversation (Codex-style diff integration).
       if (event.type === "agent_settled" && s.currentProject) {
-        void s.refreshGit();
+        void Promise.all([s.refreshGit(), s.refreshSessions()]);
       }
     });
 
@@ -146,18 +166,23 @@ export const useApp = create<AppStore>((set, get) => ({
     });
 
     api().onTerminalData(({ id, data }) => {
+      appendTerminalData(id, data);
       window.dispatchEvent(new CustomEvent("lattice-term-data", { detail: { id, data } }));
     });
 
-    api().onTerminalExit(({ id }) => {
-      set({ terminals: get().terminals.filter((t) => t.id !== id) });
-    });
+      api().onTerminalExit(({ id }) => {
+        clearTerminalBuffer(id);
+        set({ terminals: get().terminals.filter((t) => t.id !== id) });
+      });
 
-    const [projects, settings] = await Promise.all([api().getProjects(), api().getSettings()]);
+      api().onModelsChanged(() => void get().loadModels());
+      api().onGitChanged(() => void get().refreshGit());
+      api().onSessionDeleted(() => void get().refreshSessions());
+    }
+
+    const [projects, loadedSettings] = await Promise.all([api().getProjects(), api().getSettings()]);
+    const settings = { ...get().settings, ...loadedSettings };
     set({ projects, settings, ready: true });
-
-    const theme = settings.theme;
-    document.documentElement.dataset.theme = theme;
     applyAppearance(settings);
   },
 
@@ -166,7 +191,24 @@ export const useApp = create<AppStore>((set, get) => ({
   openProject: async (path) => {
     const project = await api().openProject(path);
     if (!project) return;
-    set({ currentProject: project, view: "chat", activeSessionId: null, openSessionIds: [], transcript: { ...initialTranscript } });
+    if (get().currentProject?.path === project.path) {
+      set({ view: "chat" });
+      return;
+    }
+    await Promise.allSettled(get().terminals.map((terminal) => api().killTerminal(terminal.id)));
+    set({
+      projects: [project, ...get().projects.filter((item) => item.path !== project.path)],
+      currentProject: project,
+      view: "chat",
+      activeSessionId: null,
+      openSessionIds: [],
+      sessionState: null,
+      transcript: { ...initialTranscript },
+      permissions: [],
+      terminals: [],
+      activePanel: null,
+      gitStatus: null,
+    });
     await get().refreshSessions();
     await get().refreshGit();
   },
@@ -179,36 +221,93 @@ export const useApp = create<AppStore>((set, get) => ({
   refreshSessions: async () => {
     const { currentProject } = get();
     if (!currentProject) return;
-    const sessions = await api().getSessions(currentProject.path);
-    set({ sessions });
+    const diskSessions = await api().getSessions(currentProject.path);
+    if (get().currentProject?.path !== currentProject.path) return;
+    const ephemeral = get().sessions.filter(
+      (session) =>
+        get().openSessionIds.includes(session.id) &&
+        !diskSessions.some((saved) => saved.id === session.id),
+    );
+    set({ sessions: [...diskSessions, ...ephemeral] });
   },
 
   createSession: async (name) => {
     const { currentProject } = get();
-    if (!currentProject) return;
-    const result = (await api().createSession({
-      projectId: currentProject.id,
-      cwd: currentProject.path,
-      name,
-    })) as { sessionId: string; state: SessionState };
-    await get().refreshSessions();
-    await get().setActiveSession(result.sessionId);
-    set({ openSessionIds: [...new Set([...get().openSessionIds, result.sessionId])] });
+    if (!currentProject || get().transcript.running) return;
+    return enqueueSessionNavigation(async (generation) => {
+      const result = (await api().createSession({
+        projectId: currentProject.id,
+        cwd: currentProject.path,
+        name,
+      })) as { sessionId: string; cwd: string; file?: string; state: SessionState };
+      await get().refreshSessions();
+      if (
+        generation !== sessionNavigationGeneration ||
+        get().currentProject?.path !== currentProject.path
+      ) return;
+      const now = Date.now();
+      const optimistic: SessionMeta = {
+        id: result.sessionId,
+        name: result.state.name ?? name,
+        projectId: currentProject.id,
+        cwd: result.cwd || currentProject.path,
+        file: result.file ?? result.state.file,
+        createdAt: now,
+        updatedAt: now,
+        messageCount: result.state.messageCount,
+      };
+      set({
+        sessions: get().sessions.some((session) => session.id === result.sessionId)
+          ? get().sessions
+          : [optimistic, ...get().sessions],
+        activeSessionId: result.sessionId,
+        sessionState: result.state,
+        transcript: { ...initialTranscript },
+        openSessionIds: [...new Set([...get().openSessionIds, result.sessionId])],
+      });
+    });
   },
 
   openSession: async (file) => {
     const { currentProject } = get();
-    if (!currentProject) return;
-    const result = (await api().openSession({
-      projectId: currentProject.id,
-      cwd: currentProject.path,
-      file,
-    })) as { sessionId: string; state: SessionState };
-    await get().setActiveSession(result.sessionId);
-    set({ openSessionIds: [...new Set([...get().openSessionIds, result.sessionId])] });
+    const target = get().sessions.find((session) => session.file === file);
+    if (
+      !currentProject ||
+      (get().transcript.running && target?.id !== get().activeSessionId)
+    ) return;
+    return enqueueSessionNavigation(async (generation) => {
+      const result = (await api().openSession({
+        projectId: currentProject.id,
+        cwd: currentProject.path,
+        file,
+      })) as { sessionId: string; state: SessionState };
+      if (generation !== sessionNavigationGeneration) return;
+      const messages = await api().getSessionMessages(result.sessionId);
+      if (
+        generation !== sessionNavigationGeneration ||
+        get().currentProject?.path !== currentProject.path
+      ) return;
+      set({
+        activeSessionId: result.sessionId,
+        sessionState: result.state,
+        transcript: {
+          ...initialTranscript,
+          messages: messages as AgentMessage[],
+          running: result.state.isStreaming,
+        },
+        openSessionIds: [...new Set([...get().openSessionIds, result.sessionId])],
+      });
+    });
   },
 
   setActiveSession: async (sessionId) => {
+    if (get().transcript.running && sessionId !== get().activeSessionId) return;
+    const currentProject = get().currentProject;
+    const meta = get().sessions.find((session) => session.id === sessionId);
+    if (currentProject && meta?.file && get().activeSessionId !== sessionId) {
+      await get().openSession(meta.file);
+      return;
+    }
     const [state, messages] = await Promise.all([
       api().getSessionState(sessionId),
       api().getSessionMessages(sessionId),
@@ -227,6 +326,7 @@ export const useApp = create<AppStore>((set, get) => ({
 
   closeSessionTab: async (sessionId) => {
     const s = get();
+    if (s.transcript.running && s.activeSessionId === sessionId) return;
     const remaining = s.openSessionIds.filter((id) => id !== sessionId);
     // If closing the active tab, switch to the last remaining one.
     if (s.activeSessionId === sessionId) {
@@ -244,11 +344,33 @@ export const useApp = create<AppStore>((set, get) => ({
 
   renameSession: async (sessionId, name) => {
     await api().renameSession(sessionId, name);
+    set({
+      sessions: get().sessions.map((session) =>
+        session.id === sessionId ? { ...session, name, updatedAt: Date.now() } : session,
+      ),
+      sessionState:
+        get().sessionState?.sessionId === sessionId
+          ? { ...get().sessionState!, name }
+          : get().sessionState,
+    });
     await get().refreshSessions();
   },
 
   deleteSession: async (file) => {
+    const deleted = get().sessions.find((session) => session.file === file);
     await api().deleteSession(file);
+    const openSessionIds = deleted
+      ? get().openSessionIds.filter((id) => id !== deleted.id)
+      : get().openSessionIds;
+    set({
+      sessions: get().sessions.filter((session) => session.file !== file),
+      openSessionIds,
+    });
+    if (deleted?.id === get().activeSessionId) {
+      const next = openSessionIds[openSessionIds.length - 1];
+      set({ activeSessionId: null, sessionState: null, transcript: { ...initialTranscript } });
+      if (next) await get().setActiveSession(next);
+    }
     await get().refreshSessions();
   },
 
@@ -304,21 +426,24 @@ export const useApp = create<AppStore>((set, get) => ({
     const id = get().activeSessionId;
     if (!id) return;
     await api().setThinkingLevel(id, level);
+    const state = await api().getSessionState(id);
+    set({ sessionState: state as SessionState });
   },
 
   setApiKey: async (providerId, apiKey) => {
-    await api().login(providerId, apiKey);
+    if (!apiKey.trim()) return;
+    await api().login(providerId, apiKey.trim());
     await get().loadModels();
   },
 
-  respondPermission: (requestId, action) => {
-    api().respondPermission(requestId, action);
-    set({ permissions: get().permissions.filter((p) => p.requestId !== requestId) });
+  respondPermission: async (requestId, action) => {
+    await api().respondPermission(requestId, action);
+    set({ permissions: get().permissions.filter((permission) => permission.requestId !== requestId) });
   },
 
-  dismissPermission: (requestId) => {
-    api().respondPermission(requestId, "deny-once");
-    set({ permissions: get().permissions.filter((p) => p.requestId !== requestId) });
+  dismissPermission: async (requestId) => {
+    await api().respondPermission(requestId, "deny-once");
+    set({ permissions: get().permissions.filter((permission) => permission.requestId !== requestId) });
   },
 
   createTerminal: async () => {
@@ -330,7 +455,8 @@ export const useApp = create<AppStore>((set, get) => ({
 
   killTerminal: async (id) => {
     await api().killTerminal(id);
-    set({ terminals: get().terminals.filter((t) => t.id !== id) });
+    clearTerminalBuffer(id);
+    set({ terminals: get().terminals.filter((terminal) => terminal.id !== id) });
   },
 
   refreshGit: async () => {
@@ -338,9 +464,9 @@ export const useApp = create<AppStore>((set, get) => ({
     if (!currentProject) return;
     try {
       const status = (await api().gitStatus(currentProject.path)) as GitStatus;
-      set({ gitStatus: status });
+      if (get().currentProject?.path === currentProject.path) set({ gitStatus: status });
     } catch {
-      set({ gitStatus: null });
+      if (get().currentProject?.path === currentProject.path) set({ gitStatus: null });
     }
   },
 

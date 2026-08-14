@@ -55,6 +55,13 @@
   opacity: 0.45;
   cursor: default;
 }
+.icon-btn:disabled,
+.picker-btn:disabled,
+.model-badge:disabled {
+  opacity: 0.38;
+  cursor: default;
+  pointer-events: none;
+}
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -311,6 +318,12 @@ body[data-platform="darwin"] .sidebar-header {
   background: var(--surface-3);
   color: var(--text-primary);
 }
+.item.disabled,
+.session-tab.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 .item.active::before {
   content: "";
   position: absolute;
@@ -525,6 +538,11 @@ body[data-platform="darwin"] .sidebar-header {
 .session-tab .tab-close:hover {
   background: var(--surface-4);
   color: var(--text-primary);
+}
+.session-tab .tab-close[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 .tab-new {
   flex-shrink: 0;

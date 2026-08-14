@@ -42,29 +42,48 @@ fn git_roundtrip() {
     // modify a.txt (add 1 line) + create untracked b.txt
     fs::write(dir.join("a.txt"), "hello\nworld\nmore\n").unwrap();
     fs::write(dir.join("b.txt"), "new file\n").unwrap();
+    fs::write(dir.join("你好.txt"), "unicode path\n").unwrap();
 
     let st = poctauri_app_lib::git::git_status(path.clone()).unwrap();
     assert!(!st.clean);
     assert!(
         st.files
             .iter()
-            .any(|f| f.path == "a.txt" && f.status == "M"),
+            .any(|f| f.path == "a.txt" && f.working_dir == "M"),
         "files: {:?}",
         st.files
             .iter()
-            .map(|f| (&f.path, &f.status))
+            .map(|f| (&f.path, &f.index, &f.working_dir))
             .collect::<Vec<_>>()
     );
     assert!(
         st.files
             .iter()
-            .any(|f| f.path == "b.txt" && f.status == "?"),
+            .any(|f| f.path == "b.txt" && f.index == "?" && f.working_dir == "?"),
         "untracked b.txt expected"
+    );
+    assert!(
+        st.files.iter().any(|f| f.path == "你好.txt"),
+        "Unicode path should round-trip: {:?}",
+        st.files.iter().map(|file| &file.path).collect::<Vec<_>>()
     );
 
     // diff for a.txt contains the added line
     let diff = poctauri_app_lib::git::git_diff(path.clone(), "a.txt".into()).unwrap();
     assert!(diff.contains("+more"), "diff: {diff}");
+    let untracked = poctauri_app_lib::git::git_diff(path.clone(), "b.txt".into()).unwrap();
+    assert!(untracked.contains("new file mode"), "diff: {untracked}");
+    assert!(untracked.contains("+new file"), "diff: {untracked}");
+
+    // Commit button stages the displayed changes because the UI has no
+    // separate staging controls.
+    let hash = poctauri_app_lib::git::git_commit(path.clone(), "save changes".into()).unwrap();
+    assert_eq!(hash.len(), 40);
+    assert!(
+        poctauri_app_lib::git::git_status(path.clone())
+            .unwrap()
+            .clean
+    );
 
     // branches contains main
     let branches = poctauri_app_lib::git::git_branches(path.clone()).unwrap();

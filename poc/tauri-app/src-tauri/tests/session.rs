@@ -4,7 +4,8 @@ use std::fs;
 
 #[test]
 fn session_roundtrip() {
-    let dir = std::env::temp_dir().join(format!("lattice-session-test-{}", std::process::id()));
+    let dir = poctauri_app_lib::paths::session_dir()
+        .join(format!("lattice-session-test-{}", std::process::id()));
     fs::create_dir_all(&dir).unwrap();
 
     let file = dir.join("2024-01-01T00-00-00-000Z_abc123.jsonl");
@@ -18,7 +19,7 @@ fn session_roundtrip() {
     )
     .unwrap();
 
-    let list = poctauri_app_lib::session::session_list(dir.to_string_lossy().to_string()).unwrap();
+    let list = poctauri_app_lib::session::list_sessions_in(&dir).unwrap();
     assert_eq!(list.len(), 1, "list: {list:?}");
     assert_eq!(list[0].id, "abc123");
     assert_eq!(list[0].cwd, "/tmp/proj");

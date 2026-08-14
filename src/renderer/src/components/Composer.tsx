@@ -72,20 +72,31 @@ export function Composer() {
     }
   };
 
-  const submit = () => {
-    const t = text.trim();
-    if (!t && attachments.length === 0) return;
+  const submit = async () => {
+    const message = text.trim();
+    if (running || (!message && attachments.length === 0)) return;
+    const pendingAttachments = attachments;
+    const images = pendingAttachments.map((attachment) => ({
+      type: "image" as const,
+      data: attachment.data,
+      mimeType: attachment.mimeType,
+    }));
     setText("");
     setAtQuery(null);
-    const images = attachments.map((a) => ({ type: "image" as const, data: a.data, mimeType: a.mimeType }));
     setAttachments([]);
-    void prompt(t || "Describe this image", images);
+    try {
+      await prompt(message || "Describe this image", images);
+    } catch {
+      // Keep the user's draft recoverable when native/RPC submission fails.
+      setText(message);
+      setAttachments(pendingAttachments);
+    }
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      submit();
+      void submit();
     }
   };
 
@@ -211,7 +222,7 @@ export function Composer() {
           ) : (
             <button
               className={`send-btn ${(text.trim() || attachments.length > 0) && !disabled ? "active" : ""}`}
-              onClick={submit}
+              onClick={() => void submit()}
               disabled={(!text.trim() && attachments.length === 0) || disabled}
               data-tooltip={`${t("composer.send")} (⏎)`}
             >

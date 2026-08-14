@@ -114,7 +114,11 @@ export function SettingsView() {
                     >
                       👁
                     </button>
-                    <button className="btn btn-sm btn-primary" onClick={() => void setApiKey(p.id, keyInputs[p.id] ?? "")}>
+                    <button
+                      className="btn btn-sm btn-primary"
+                      disabled={!(keyInputs[p.id] ?? "").trim()}
+                      onClick={() => void setApiKey(p.id, keyInputs[p.id] ?? "")}
+                    >
                       {t("settings.save")}
                     </button>
                   </div>
@@ -133,7 +137,7 @@ export function SettingsView() {
                 onChange={(e) => void updateSettings({ sandboxMode: e.target.value as "none" | "docker" })}
               >
                 <option value="none">{t("settings.sandboxNone")}</option>
-                <option value="docker">{t("settings.sandboxDocker")}</option>
+                <option value="docker" disabled>{t("settings.sandboxDocker")}</option>
               </select>
             </div>
             <div className="field">

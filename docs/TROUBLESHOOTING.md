@@ -61,13 +61,18 @@ Lattice shells out to the system `git` binary. Ensure `git` is on `PATH`.
 
 ## macOS: "app is damaged / cannot be opened"
 
-Unsigned build → Gatekeeper. Run:
+Production releases starting with v1.1.1 are Developer ID signed, notarized,
+and stapled. Do **not** remove quarantine from a downloaded production build.
+Instead:
 
-```bash
-xattr -dr com.apple.quarantine /path/to/Lattice.app
-```
+1. Download the DMG again from the official GitHub Release.
+2. Verify it against the release-wide `SHA256SUMS` file.
+3. Confirm the download is a v1.1.1-or-newer macOS artifact.
+4. If Gatekeeper still rejects it, report the macOS version, artifact name, and
+   `spctl --assess --type execute --verbose=4 /Applications/Lattice.app` output.
 
-then right-click → Open.
+Locally built unsigned developer bundles are not production installers and are
+expected to be rejected when transferred through a quarantining channel.
 
 ## Linux: window does not open
 

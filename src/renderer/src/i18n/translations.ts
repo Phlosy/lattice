@@ -111,7 +111,7 @@ const en = {
   "settings.sandboxNone": "None (run with your user permissions)",
   "settings.sandboxDocker": "Docker (not yet enabled)",
   "settings.autoApprove": "Auto-approve read-only tools (read, grep, find, ls)",
-  "settings.permDesc": "Mutating tools (bash, write, edit) always ask for approval unless you choose \"Always allow\" when prompted. Decisions are stored per project.",
+  "settings.permDesc": "Mutating tools (bash, write, edit) always require explicit approval. Read-only tools can be auto-approved.",
   "settings.about": "About",
   "settings.aboutDesc": "Lattice — a desktop coding agent powered by the Pi runtime.",
 
@@ -228,7 +228,7 @@ const zh: Record<keyof typeof en, string> = {
   "settings.sandboxNone": "无（以你的用户权限运行）",
   "settings.sandboxDocker": "Docker（尚未启用）",
   "settings.autoApprove": "自动批准只读工具（read、grep、find、ls）",
-  "settings.permDesc": "修改型工具（bash、write、edit）总是需要批准，除非你在弹窗中选择\"始终允许\"。决定按项目存储。",
+  "settings.permDesc": "修改型工具（bash、write、edit）始终需要明确批准；只读工具可以自动批准。",
   "settings.about": "关于",
   "settings.aboutDesc": "Lattice — 一个由 Pi 运行时驱动的桌面编码 agent。",
 

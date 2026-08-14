@@ -1,19 +1,12 @@
 # Release
 
-How Lattice v1.0 is built, verified, and published.
+How Lattice is built, verified, signed, and published.
 
 ## Version
 
 Single source of truth: **`package.json`** (`version`), mirrored by
 `Cargo.toml` and `tauri.conf.json`. `scripts/check-version.mjs` enforces
 consistency; the release pipeline fails if the git tag does not match.
-
-Bump the version with:
-
-```bash
-# edit package.json version, then:
-node scripts/check-version.mjs
-```
 
 ## Release gate
 
@@ -23,67 +16,93 @@ Before tagging, run:
 scripts/release-check.sh --full
 ```
 
-Any ❌ → **DO NOT RELEASE**.
+Any failure means **DO NOT RELEASE**.
 
 ## Local build
 
 ```bash
 npm ci --ignore-scripts
-npm run build:ui            # React → poc/tauri-app/dist
-bash scripts/build-pi-sidecar.sh   # Bun-compile Pi sidecar + resources
+npm run build:ui
+bash scripts/build-pi-sidecar.sh
 npx tauri build --config poc/tauri-app/src-tauri/tauri.conf.json
 ```
 
-Outputs:
+Outputs are under `poc/tauri-app/src-tauri/target/release/bundle/`.
+
+## macOS Developer ID and notarization
+
+Public macOS artifacts are fail-closed: the release workflow will not publish a
+macOS DMG without a valid Developer ID signature, Apple notarization, and a
+stapled ticket.
+
+Configure these GitHub Actions secrets before pushing a release tag:
+
+| Secret | Value |
+|---|---|
+| `APPLE_CERTIFICATE` | Base64-encoded Developer ID Application `.p12` |
+| `APPLE_CERTIFICATE_PASSWORD` | Password used when exporting the `.p12` |
+| `APPLE_SIGNING_IDENTITY` | Full `Developer ID Application: … (TEAMID)` identity |
+| `APPLE_ID` | Apple account email used for notarization |
+| `APPLE_PASSWORD` | Apple app-specific password, not the account password |
+| `APPLE_TEAM_ID` | Ten-character Apple Developer Team ID |
+| `KEYCHAIN_PASSWORD` | Random password for the temporary CI keychain |
+
+Export a certificate for CI:
+
+```bash
+openssl base64 -A -in DeveloperIDApplication.p12 -out certificate-base64.txt
+```
+
+The workflow imports the certificate into an ephemeral keychain, supplies the
+official Tauri notarization environment variables, then requires all of:
 
 ```text
-poc/tauri-app/src-tauri/target/release/bundle/
-├── macos/Lattice.app
-└── dmg/Lattice_<version>_<arch>.dmg
+codesign --verify --deep --strict
+spctl --assess --type execute
+xcrun stapler validate Lattice.app
+xcrun stapler validate Lattice.dmg
 ```
+
+There is no quarantine-removal bypass in the production release process.
 
 ## GitHub Release
 
-Tag `v*` (e.g. `v1.0.0`) triggers `.github/workflows/release.yml`:
+A `v*` tag triggers `.github/workflows/release.yml`:
 
 ```text
-Tag → validate version → build matrix → package → checksum → GitHub Release
+Tag → version check → platform build → signing/notarization → verification
+    → checksum → GitHub Release
 ```
 
-Matrix: macOS arm64 (`macos-14`), macOS x64 (`macos-13`), Windows x64,
-Linux x64. Artifacts are renamed to:
+Blocking artifacts:
 
 ```text
-Lattice-v1.0.0-macos-arm64.dmg
-Lattice-v1.0.0-macos-x64.dmg
-Lattice-v1.0.0-windows-x64.exe
-Lattice-v1.0.0-linux-x64.AppImage
-Lattice-v1.0.0-linux-x64.deb
+Lattice-v<version>-macOS-Apple-Silicon.dmg
+Lattice-v<version>-macOS-Intel.dmg
+Lattice-v<version>-Windows-x64.exe
+Lattice-v<version>-Linux-x86_64.AppImage
+Lattice-v<version>-Linux-x86_64.deb
 SHA256SUMS
 ```
 
-## Signing status
+Windows ARM64 and Linux aarch64 remain experimental until native ARM64 runners
+can produce runtime-verified artifacts. They do not weaken the blocking release
+gates.
 
-| Platform | Status |
-|---|---|
-| macOS | ❌ unsigned (Developer ID + notarization pipeline designed but no credentials) |
-| Windows | ❌ unsigned (code signing interface reserved) |
-| Linux | ❌ unsigned |
+## Smoke test
 
-Unsigned builds are for internal distribution. `macOS` unsigned apps require
-`xattr -dr com.apple.quarantine Lattice.app` after download, and users must
-right-click → Open on first launch.
+Before publishing:
 
-## Smoke test (manual)
-
-After building an installer, before publishing:
-
-1. Install / extract.
-2. Launch — verify the window appears.
-3. Confirm Pi sidecar spawns (log line `[pi] spawned pid=…`).
-4. Open a git project, create a session, send a prompt.
-5. Confirm tool call → permission dialog → file change → diff.
-6. Close the app and confirm no leftover `pi` process.
+1. Mount the DMG and verify its branded drag-to-Applications presentation.
+2. Drag Lattice to Applications and launch it normally.
+3. Confirm Gatekeeper accepts it without warnings.
+4. Confirm Pi sidecar spawns (`[pi] spawned pid=…`).
+5. Open a git project, create a session, and send a prompt with and without an image.
+6. Switch English/Chinese, theme, and font size; restart and verify persistence.
+7. Confirm DeepSeek and OpenAI appear when their Pi credentials are configured.
+8. Exercise model/thinking selectors, terminal, git diff/commit/worktree, session
+   rename/delete/reopen, permissions, and extension install/registry browsing.
+9. Close the app and confirm no Pi process remains.
 
 ## Troubleshooting
 

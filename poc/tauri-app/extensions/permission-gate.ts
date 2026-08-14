@@ -4,8 +4,21 @@
 // sub-protocol handled by the Tauri Rust core).
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
-const APPROVAL_TOOLS = new Set(["bash", "write", "edit"]);
+const MUTATING_TOOLS = new Set(["bash", "write", "edit"]);
+const SETTINGS_PATH = join(homedir(), ".lattice", "tauri-settings.json");
+
+function autoApproveReadOnly(): boolean {
+  try {
+    const settings = JSON.parse(readFileSync(SETTINGS_PATH, "utf8")) as { autoApproveReadOnly?: unknown };
+    return settings.autoApproveReadOnly !== false;
+  } catch {
+    return true;
+  }
+}
 
 function summarize(toolName: string, input: Record<string, unknown>): string {
   if (toolName === "bash") {
@@ -20,7 +33,7 @@ function summarize(toolName: string, input: Record<string, unknown>): string {
 export default function (pi: ExtensionAPI) {
   pi.on("tool_call", async (event, ctx) => {
     const tool = event.toolName;
-    if (!APPROVAL_TOOLS.has(tool)) return;
+    if (!MUTATING_TOOLS.has(tool) && autoApproveReadOnly()) return;
 
     const input = (event.input ?? {}) as Record<string, unknown>;
     const summary = summarize(tool, input);

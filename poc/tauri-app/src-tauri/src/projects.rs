@@ -6,8 +6,7 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn state_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    PathBuf::from(home).join(".lattice").join("state.json")
+    crate::paths::home_dir().join(".lattice").join("state.json")
 }
 
 fn read_state() -> serde_json::Value {

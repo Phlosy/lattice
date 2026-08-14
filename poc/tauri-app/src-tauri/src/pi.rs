@@ -12,8 +12,6 @@ use std::sync::{mpsc, Arc, Mutex};
 use tauri::{Emitter, Manager, State};
 
 pub const PI_ENTRY: &str = "node_modules/@earendil-works/pi-coding-agent/dist/cli.js";
-pub const SESSION_DIR: &str = "/tmp/pi-tauri-sessions";
-const EXTENSION_REL: &str = "poc/tauri-app/extensions/permission-gate.ts";
 const MAX_RESTARTS: u32 = 3;
 
 /// Runtime lifecycle states.
@@ -91,11 +89,14 @@ fn dev_bundled_pi() -> Option<PathBuf> {
 /// can detect crashes and trigger restarts.
 pub struct PiShared {
     child: Mutex<Option<Child>>,
-    pending: Mutex<HashMap<String, mpsc::Sender<serde_json::Value>>>,
+    cwd: Mutex<Option<PathBuf>>,
+    lifecycle: Mutex<()>,
+    pending: Mutex<HashMap<String, mpsc::Sender<Result<serde_json::Value, String>>>>,
     counter: AtomicU32,
     state: AtomicU32,
     stopping: AtomicBool,
     restart_count: AtomicU32,
+    generation: AtomicU32,
     max_restarts: u32,
 }
 
@@ -103,11 +104,14 @@ impl PiShared {
     pub fn new() -> Self {
         PiShared {
             child: Mutex::new(None),
+            cwd: Mutex::new(None),
+            lifecycle: Mutex::new(()),
             pending: Mutex::new(HashMap::new()),
             counter: AtomicU32::new(0),
             state: AtomicU32::new(PiState::Stopped as u32),
             stopping: AtomicBool::new(false),
             restart_count: AtomicU32::new(0),
+            generation: AtomicU32::new(0),
             max_restarts: MAX_RESTARTS,
         }
     }
@@ -144,10 +148,80 @@ impl Drop for PiShared {
     }
 }
 
+const PROVIDER_ENV_KEYS: &[&str] = &[
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "GOOGLE_API_KEY",
+    "GEMINI_API_KEY",
+    "GROQ_API_KEY",
+    "XAI_API_KEY",
+    "MISTRAL_API_KEY",
+    "OPENROUTER_API_KEY",
+    "CEREBRAS_API_KEY",
+    "ZAI_API_KEY",
+    "AZURE_OPENAI_API_KEY",
+];
+
+fn parse_null_env(output: &[u8]) -> HashMap<String, String> {
+    output
+        .split(|b| *b == 0 || *b == b'\n')
+        .filter_map(|entry| {
+            let text = std::str::from_utf8(entry).ok()?;
+            let (key, value) = text.split_once('=')?;
+            Some((key.to_string(), value.to_string()))
+        })
+        .collect()
+}
+
+fn is_permission_request(value: &serde_json::Value) -> bool {
+    value["type"].as_str() == Some("extension_ui_request")
+        && value["method"].as_str() == Some("confirm")
+}
+
+/// Finder-launched macOS apps do not inherit variables exported by the user's
+/// interactive shell. Import only known provider credential variables into the
+/// Pi child; never expose the resulting environment to the renderer.
+fn apply_login_shell_credentials(command: &mut Command) {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        let missing: Vec<&str> = PROVIDER_ENV_KEYS
+            .iter()
+            .copied()
+            .filter(|key| std::env::var_os(key).is_none())
+            .collect();
+        if missing.is_empty() {
+            return;
+        }
+        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
+        if let Ok(output) = Command::new(shell)
+            .args(["-ilc", "env"])
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .output()
+        {
+            if output.status.success() {
+                let values = parse_null_env(&output.stdout);
+                for key in missing {
+                    if let Some(value) = values.get(key).filter(|value| !value.is_empty()) {
+                        command.env(key, value);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Spawn the sidecar process and attach the stdout reader thread. Assumes the
 /// child slot is empty and the state machine already transitioned to Starting.
 fn spawn_pi(app: &tauri::AppHandle, shared: &Arc<PiShared>) -> Result<(), String> {
     // Resolve the sidecar: packaged resource → dev bundled → node fallback.
+    let working_dir = shared
+        .cwd
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone()
+        .unwrap_or_else(crate::paths::home_dir);
     let resource_bin = app
         .path()
         .resource_dir()
@@ -163,19 +237,29 @@ fn spawn_pi(app: &tauri::AppHandle, shared: &Arc<PiShared>) -> Result<(), String
         let dir = bin.parent().map(|d| d.to_path_buf()).unwrap_or_default();
         let ext = dir.join("extensions").join("permission-gate.ts");
         let mut c = Command::new(&bin);
-        c.current_dir("../../.."); // lattice workspace root (matches node fallback)
+        c.current_dir(&working_dir);
         (c, ext.to_string_lossy().to_string())
     } else {
         let mut c = Command::new("node");
-        c.arg(PI_ENTRY).current_dir("../../.."); // lattice workspace root
-        (c, EXTENSION_REL.to_string())
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let root = manifest.join("../../..");
+        let extension = manifest
+            .parent()
+            .unwrap_or(manifest)
+            .join("extensions")
+            .join("permission-gate.ts");
+        c.arg(root.join(PI_ENTRY)).current_dir(&working_dir);
+        (c, extension.to_string_lossy().to_string())
     };
+
+    apply_login_shell_credentials(&mut cmd);
+    let session_dir = crate::paths::prepare_session_dir()?;
 
     let mut child = cmd
         .arg("--mode")
         .arg("rpc")
         .arg("--session-dir")
-        .arg(SESSION_DIR)
+        .arg(&session_dir)
         .arg("--approve")
         .arg("--extension")
         .arg(&extension)
@@ -188,6 +272,7 @@ fn spawn_pi(app: &tauri::AppHandle, shared: &Arc<PiShared>) -> Result<(), String
     eprintln!("[pi] spawned pid={} ext={}", child.id(), extension);
 
     let stdout = child.stdout.take().ok_or("no stdout")?;
+    let generation = shared.generation.load(Ordering::SeqCst);
     *shared.child.lock().map_err(|e| e.to_string())? = Some(child);
 
     shared.emit_state(app, PiState::Ready);
@@ -206,12 +291,24 @@ fn spawn_pi(app: &tauri::AppHandle, shared: &Arc<PiShared>) -> Result<(), String
                             "response" => {
                                 if let Some(id) = v["id"].as_str() {
                                     if let Some(tx) = shared.pending.lock().unwrap().remove(id) {
-                                        let _ = tx.send(v["data"].clone());
+                                        let result = if v["success"].as_bool() == Some(false) {
+                                            Err(v["error"]
+                                                .as_str()
+                                                .unwrap_or("Pi RPC command failed")
+                                                .to_string())
+                                        } else {
+                                            Ok(v["data"].clone())
+                                        };
+                                        let _ = tx.send(result);
                                     }
                                 }
                             }
                             "extension_ui_request" => {
-                                let _ = app_handle.emit("ui-request", &v);
+                                // Pi extensions also use this channel for status/widgets.
+                                // Only confirm requests are permission dialogs.
+                                if is_permission_request(&v) {
+                                    let _ = app_handle.emit("ui-request", &v);
+                                }
                             }
                             "agent_settled" => {
                                 if shared.get_state() == PiState::Busy {
@@ -229,15 +326,39 @@ fn spawn_pi(app: &tauri::AppHandle, shared: &Arc<PiShared>) -> Result<(), String
             }
         }
         // stdout closed → the sidecar exited.
-        on_sidecar_exit(&app_handle, &shared);
+        on_sidecar_exit(&app_handle, &shared, generation);
     });
 
     Ok(())
 }
 
+fn fail_pending(shared: &Arc<PiShared>, message: &str) {
+    if let Ok(mut pending) = shared.pending.lock() {
+        for (_, sender) in pending.drain() {
+            let _ = sender.send(Err(message.to_string()));
+        }
+    }
+}
+
 /// Called when the sidecar's stdout closes. Distinguishes an intentional stop
 /// from a crash, and triggers a bounded restart on crash.
-fn on_sidecar_exit(app: &tauri::AppHandle, shared: &Arc<PiShared>) {
+fn on_sidecar_exit(app: &tauri::AppHandle, shared: &Arc<PiShared>, generation: u32) {
+    // A deliberate credential refresh replaces the child before the old reader
+    // observes EOF. Ignore that stale reader rather than treating it as a crash.
+    if generation != shared.generation.load(Ordering::SeqCst) {
+        return;
+    }
+    let _lifecycle = match shared.lifecycle.lock() {
+        Ok(lock) => lock,
+        Err(error) => {
+            eprintln!("[pi] lifecycle lock poisoned after sidecar exit: {error}");
+            return;
+        }
+    };
+    if generation != shared.generation.load(Ordering::SeqCst) {
+        return;
+    }
+    fail_pending(shared, "Pi sidecar exited");
     let intentional = shared.stopping.load(Ordering::SeqCst);
     if intentional {
         shared.emit_state(app, PiState::Stopped);
@@ -275,6 +396,7 @@ fn on_sidecar_exit(app: &tauri::AppHandle, shared: &Arc<PiShared>) {
 }
 
 pub fn ensure_spawned(app: &tauri::AppHandle, shared: &Arc<PiShared>) -> Result<(), String> {
+    let _lifecycle = shared.lifecycle.lock().map_err(|e| e.to_string())?;
     if shared.stopping.load(Ordering::SeqCst) {
         return Ok(());
     }
@@ -291,7 +413,64 @@ pub fn ensure_spawned(app: &tauri::AppHandle, shared: &Arc<PiShared>) -> Result<
     spawn_pi(app, shared)
 }
 
-/// Fire-and-forget command (prompt/abort/respond) — no response awaited.
+/// Restart the RPC sidecar after credential storage changes. The generation
+/// counter prevents the old stdout reader from reporting a false crash.
+pub fn restart_pi(
+    app: &tauri::AppHandle,
+    shared: &Arc<PiShared>,
+    restore_session: Option<&str>,
+) -> Result<(), String> {
+    let _lifecycle = shared.lifecycle.lock().map_err(|e| e.to_string())?;
+    shared.generation.fetch_add(1, Ordering::SeqCst);
+    fail_pending(shared, "Pi sidecar is restarting");
+    shared.stopping.store(true, Ordering::SeqCst);
+    {
+        let mut guard = shared.child.lock().map_err(|e| e.to_string())?;
+        if let Some(child) = guard.as_mut() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        *guard = None;
+    }
+    shared.stopping.store(false, Ordering::SeqCst);
+    shared.restart_count.store(0, Ordering::SeqCst);
+    shared.emit_state(app, PiState::Starting);
+    spawn_pi(app, shared)?;
+    if let Some(path) = restore_session.filter(|path| !path.is_empty()) {
+        pi_request(
+            shared,
+            serde_json::json!({ "type": "switch_session", "sessionPath": path }),
+        )?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn pi_set_cwd(
+    app: tauri::AppHandle,
+    shared: State<Arc<PiShared>>,
+    cwd: String,
+) -> Result<bool, String> {
+    let path = PathBuf::from(&cwd);
+    if !path.is_dir() {
+        return Err(format!("Not a directory: {cwd}"));
+    }
+    let changed = {
+        let mut current = shared.cwd.lock().map_err(|e| e.to_string())?;
+        if current.as_ref() == Some(&path) {
+            false
+        } else {
+            *current = Some(path);
+            true
+        }
+    };
+    if changed && shared.child.lock().map_err(|e| e.to_string())?.is_some() {
+        restart_pi(&app, &shared, None)?;
+    }
+    Ok(changed)
+}
+
+/// Send a one-way protocol message such as an extension UI response.
 pub fn pi_send(shared: &Arc<PiShared>, command: &serde_json::Value) -> Result<(), String> {
     let mut guard = shared.child.lock().map_err(|e| e.to_string())?;
     let child = guard.as_mut().ok_or("pi not running")?;
@@ -299,10 +478,6 @@ pub fn pi_send(shared: &Arc<PiShared>, command: &serde_json::Value) -> Result<()
     writeln!(stdin, "{command}").map_err(|e| e.to_string())?;
     stdin.flush().map_err(|e| e.to_string())?;
     drop(guard);
-
-    if command["type"] == "prompt" && shared.get_state() == PiState::Ready {
-        shared.set_state(PiState::Busy);
-    }
     Ok(())
 }
 
@@ -324,16 +499,25 @@ pub fn pi_request(
         obj.insert("id".to_string(), serde_json::json!(id));
     }
 
-    {
+    let send_result = (|| -> Result<(), String> {
         let mut guard = shared.child.lock().map_err(|e| e.to_string())?;
         let child = guard.as_mut().ok_or("pi not running")?;
         let stdin = child.stdin.as_mut().ok_or("no stdin")?;
         writeln!(stdin, "{cmd}").map_err(|e| e.to_string())?;
-        stdin.flush().map_err(|e| e.to_string())?;
+        stdin.flush().map_err(|e| e.to_string())
+    })();
+    if let Err(error) = send_result {
+        let _ = shared.pending.lock().map(|mut pending| pending.remove(&id));
+        return Err(error);
     }
 
-    rx.recv_timeout(std::time::Duration::from_secs(60))
-        .map_err(|e| format!("pi request timeout: {e}"))
+    match rx.recv_timeout(std::time::Duration::from_secs(60)) {
+        Ok(result) => result,
+        Err(error) => {
+            let _ = shared.pending.lock().map(|mut pending| pending.remove(&id));
+            Err(format!("pi request timeout: {error}"))
+        }
+    }
 }
 
 // ---- Tauri commands ----
@@ -345,12 +529,18 @@ pub fn pi_prompt(
     app: tauri::AppHandle,
     shared: SharedState,
     text: String,
+    images: Option<Vec<serde_json::Value>>,
 ) -> Result<String, String> {
     ensure_spawned(&app, &shared)?;
-    pi_send(
+    shared.emit_state(&app, PiState::Busy);
+    let result = pi_request(
         &shared,
-        &serde_json::json!({ "type": "prompt", "message": text }),
-    )?;
+        serde_json::json!({ "type": "prompt", "message": text, "images": images.unwrap_or_default() }),
+    );
+    if let Err(error) = result {
+        shared.emit_state(&app, PiState::Ready);
+        return Err(error);
+    }
     Ok("prompt sent".into())
 }
 
@@ -361,9 +551,9 @@ pub fn pi_steer(
     message: String,
 ) -> Result<String, String> {
     ensure_spawned(&app, &shared)?;
-    pi_send(
+    pi_request(
         &shared,
-        &serde_json::json!({ "type": "steer", "message": message }),
+        serde_json::json!({ "type": "steer", "message": message }),
     )?;
     Ok("steer sent".into())
 }
@@ -375,9 +565,9 @@ pub fn pi_follow_up(
     message: String,
 ) -> Result<String, String> {
     ensure_spawned(&app, &shared)?;
-    pi_send(
+    pi_request(
         &shared,
-        &serde_json::json!({ "type": "follow_up", "message": message }),
+        serde_json::json!({ "type": "follow_up", "message": message }),
     )?;
     Ok("follow_up sent".into())
 }
@@ -385,8 +575,23 @@ pub fn pi_follow_up(
 #[tauri::command]
 pub fn pi_abort(app: tauri::AppHandle, shared: SharedState) -> Result<String, String> {
     ensure_spawned(&app, &shared)?;
-    pi_send(&shared, &serde_json::json!({ "type": "abort" }))?;
+    pi_request(&shared, serde_json::json!({ "type": "abort" }))?;
     Ok("abort sent".into())
+}
+
+#[tauri::command]
+pub fn pi_continue(app: tauri::AppHandle, shared: SharedState) -> Result<String, String> {
+    ensure_spawned(&app, &shared)?;
+    shared.emit_state(&app, PiState::Busy);
+    let result = pi_request(
+        &shared,
+        serde_json::json!({ "type": "prompt", "message": "Continue from the previous interruption." }),
+    );
+    if let Err(error) = result {
+        shared.emit_state(&app, PiState::Ready);
+        return Err(error);
+    }
+    Ok("continue sent".into())
 }
 
 #[tauri::command]
@@ -400,19 +605,25 @@ pub fn pi_respond_ui(shared: SharedState, id: String, confirmed: bool) -> Result
 /// Force-kill the sidecar (used by tests to exercise crash/restart).
 #[tauri::command]
 pub fn pi_crash(shared: SharedState) -> Result<String, String> {
+    let _lifecycle = shared.lifecycle.lock().map_err(|e| e.to_string())?;
+    fail_pending(&shared, "Pi sidecar was force-killed");
     let mut guard = shared.child.lock().map_err(|e| e.to_string())?;
     if let Some(child) = guard.as_mut() {
-        let _ = child.kill();
+        child.kill().map_err(|e| e.to_string())?;
     }
-    *guard = None;
+    // Keep the handle installed until the stdout reader observes EOF. That
+    // reader owns crash cleanup and bounded restart; clearing it here would let
+    // ensure_spawned race in a replacement child under the old generation.
     Ok("pi killed".into())
 }
 
 /// Gracefully stop the sidecar (App Exit).
 #[tauri::command]
 pub fn pi_stop(shared: SharedState) -> Result<String, String> {
+    let _lifecycle = shared.lifecycle.lock().map_err(|e| e.to_string())?;
     shared.stopping.store(true, Ordering::SeqCst);
     shared.set_state(PiState::Stopping);
+    fail_pending(&shared, "Pi sidecar stopped");
     let mut guard = shared.child.lock().map_err(|e| e.to_string())?;
     if let Some(child) = guard.as_mut() {
         let _ = child.kill();
@@ -432,4 +643,34 @@ pub fn pi_status(shared: SharedState) -> Result<serde_json::Value, String> {
         "pid": pid,
         "restartCount": shared.restart_count.load(Ordering::SeqCst),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_null_delimited_shell_environment() {
+        let env = parse_null_env(b"PATH=/bin\0DEEPSEEK_API_KEY=secret\0BAD\0");
+        assert_eq!(env.get("PATH").map(String::as_str), Some("/bin"));
+        assert_eq!(
+            env.get("DEEPSEEK_API_KEY").map(String::as_str),
+            Some("secret")
+        );
+        assert!(!env.contains_key("BAD"));
+    }
+
+    #[test]
+    fn credential_whitelist_contains_deepseek_and_openai() {
+        assert!(PROVIDER_ENV_KEYS.contains(&"DEEPSEEK_API_KEY"));
+        assert!(PROVIDER_ENV_KEYS.contains(&"OPENAI_API_KEY"));
+    }
+
+    #[test]
+    fn only_confirm_ui_requests_are_permissions() {
+        let confirm = serde_json::json!({ "type": "extension_ui_request", "method": "confirm" });
+        let widget = serde_json::json!({ "type": "extension_ui_request", "method": "setWidget" });
+        assert!(is_permission_request(&confirm));
+        assert!(!is_permission_request(&widget));
+    }
 }

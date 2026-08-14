@@ -3,7 +3,10 @@ import { useApp } from "../store/useApp";
 import { useT } from "../i18n";
 import { ModelPicker } from "./ModelPicker";
 
-const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+// Common denominator supported by current reasoning providers. Provider-only
+// levels (for example xhigh/max) stay hidden until the API exposes Pi's
+// get_available_thinking_levels response.
+const THINKING_LEVELS = ["off", "low", "medium", "high"] as const;
 
 export function TopBar({ onMenu }: { onMenu?: () => void }) {
   const sessionState = useApp((s) => s.sessionState);
@@ -40,7 +43,11 @@ export function TopBar({ onMenu }: { onMenu?: () => void }) {
         <ModelPicker />
 
         <div ref={thinkPop.ref} style={{ position: "relative" }}>
-          <button className="picker-btn" onClick={() => thinkPop.setOpen((v) => !v)}>
+          <button
+            className="picker-btn"
+            disabled={!sessionState?.model?.reasoning}
+            onClick={() => thinkPop.setOpen((v) => !v)}
+          >
             {thinking}
             <span className="chev">▾</span>
           </button>
@@ -71,7 +78,12 @@ export function TopBar({ onMenu }: { onMenu?: () => void }) {
         {running ? t("topbar.working") : t("topbar.idle")}
       </div>
 
-      <button className="icon-btn" data-tooltip={t("topbar.terminal")} onClick={() => void createTerminal()}>
+      <button
+        className="icon-btn"
+        data-tooltip={t("topbar.terminal")}
+        disabled={!currentProject}
+        onClick={() => void createTerminal()}
+      >
         ⌘
       </button>
       {gitStatus && (

@@ -28,8 +28,23 @@ export function GitPanel() {
   }, [refreshGit]);
 
   useEffect(() => {
-    if (!selected || !currentProject) return;
-    window.lattice.gitDiff(currentProject.path, [selected]).then((d) => setDiff(d as string));
+    if (!selected || !currentProject) {
+      setDiff("");
+      return;
+    }
+    let current = true;
+    setDiff("");
+    window.lattice
+      .gitDiff(currentProject.path, [selected])
+      .then((value) => {
+        if (current) setDiff(value as string);
+      })
+      .catch(() => {
+        if (current) setDiff("");
+      });
+    return () => {
+      current = false;
+    };
   }, [selected, currentProject]);
 
   useEffect(() => {
