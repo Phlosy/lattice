@@ -9,6 +9,11 @@ on:
 permissions:
   contents: write
 
+env:
+  # Repository variable override for future production distribution.
+  # Defaults to ad-hoc signing for GitHub/internal desktop releases.
+  MACOS_SIGNING_MODE: ${{ vars.MACOS_SIGNING_MODE || 'adhoc' }}
+
 jobs:
   build:
     name: build (${{ matrix.label }})
@@ -69,34 +74,56 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Require Apple signing and notarization credentials
+      - name: Configure macOS signing mode
         if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MODE: ${{ env.MACOS_SIGNING_MODE }}
+        run: |
+          set -euo pipefail
+          case "$MODE" in
+            adhoc)
+              echo "Using macOS ad-hoc signing (not Developer ID signed or notarized)"
+              echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+              ;;
+            developer-id)
+              echo "Using Apple Developer ID signing and notarization"
+              ;;
+            *)
+              echo "::error::Unknown MACOS_SIGNING_MODE: $MODE"
+              exit 1
+              ;;
+          esac
+
+      - name: Require Developer ID and notarization credentials
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_MODE == 'developer-id'
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_SIGNING_IDENTITY_SECRET: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
-          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
-            APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID KEYCHAIN_PASSWORD; do
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD \
+            APPLE_SIGNING_IDENTITY_SECRET APPLE_ID APPLE_PASSWORD \
+            APPLE_TEAM_ID KEYCHAIN_PASSWORD; do
             if [ -z "${!name:-}" ]; then
-              echo "::error::$name is required for a production macOS release"
+              echo "::error::$name is required when MACOS_SIGNING_MODE=developer-id"
               exit 1
             fi
           done
+          echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY_SECRET" >> "$GITHUB_ENV"
 
       - name: Import Developer ID certificate
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_MODE == 'developer-id'
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
@@ -130,17 +157,27 @@ jobs:
         shell: bash
         run: bash scripts/build-pi-sidecar.sh "${{ matrix.platform }}"
 
-      - name: Tauri build
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
-          APPLE_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
-          MACOSX_DEPLOYMENT_TARGET: ${{ runner.os == 'macOS' && '13.0' || '' }}
+      - name: Tauri build and packaging (non-macOS)
+        if: runner.os != 'macOS'
         run: npx tauri build --config poc/tauri-app/src-tauri/tauri.conf.json --target "${{ matrix.target }}"
 
-      - name: Verify signed, notarized, stapled macOS bundles
-        if: runner.os == 'macOS'
+      - name: Tauri build, ad-hoc signing, and packaging (macOS)
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_MODE == 'adhoc'
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "13.0"
+        run: npx tauri build --config poc/tauri-app/src-tauri/tauri.conf.json --target "${{ matrix.target }}"
+
+      - name: Tauri build, Developer ID signing, notarization, and packaging (macOS)
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_MODE == 'developer-id'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MACOSX_DEPLOYMENT_TARGET: "13.0"
+        run: npx tauri build --config poc/tauri-app/src-tauri/tauri.conf.json --target "${{ matrix.target }}"
+
+      - name: Verify ad-hoc macOS signature and packaged DMG
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_MODE == 'adhoc'
         shell: bash
         run: |
           set -euo pipefail
@@ -149,11 +186,21 @@ jobs:
           DMG=$(find "$BUNDLE/dmg" -maxdepth 1 -name '*.dmg' -print -quit)
           test -d "$APP"
           test -n "$DMG"
-          codesign --verify --deep --strict --verbose=2 "$APP"
-          codesign -dv --verbose=4 "$APP" 2>&1 | grep -F "TeamIdentifier=${{ secrets.APPLE_TEAM_ID }}"
-          spctl --assess --type execute --verbose=4 "$APP"
-          xcrun stapler validate "$APP"
-          xcrun stapler validate "$DMG"
+          bash scripts/verify-macos-signing.sh "$APP" "$DMG"
+
+      - name: Verify Developer ID signature, notarization, and packaged DMG
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_MODE == 'developer-id'
+        shell: bash
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          BUNDLE="poc/tauri-app/src-tauri/target/${{ matrix.target }}/release/bundle"
+          APP="$BUNDLE/macos/Lattice.app"
+          DMG=$(find "$BUNDLE/dmg" -maxdepth 1 -name '*.dmg' -print -quit)
+          test -d "$APP"
+          test -n "$DMG"
+          bash scripts/verify-macos-signing.sh "$APP" "$DMG"
 
       - name: Collect + rename artifacts
         shell: bash
@@ -184,7 +231,7 @@ jobs:
           if-no-files-found: error
 
       - name: Remove temporary signing keychain
-        if: ${{ always() && runner.os == 'macOS' }}
+        if: ${{ always() && runner.os == 'macOS' && env.MACOS_SIGNING_MODE == 'developer-id' }}
         shell: bash
         run: |
           if [ -n "${APPLE_KEYCHAIN:-}" ] && [ -f "$APPLE_KEYCHAIN" ]; then
@@ -281,12 +328,67 @@ jobs:
         run: |
           set -euo pipefail
           cd artifacts
-          test -n "$(find . -maxdepth 1 -type f -print -quit)"
+          V="${GITHUB_REF_NAME}"
+          for asset in \
+            "Lattice-${V}-macOS-Apple-Silicon.dmg" \
+            "Lattice-${V}-macOS-Intel.dmg" \
+            "Lattice-${V}-Windows-x64.exe" \
+            "Lattice-${V}-Linux-x86_64.AppImage" \
+            "Lattice-${V}-Linux-x86_64.deb"; do
+            test -f "$asset" || { echo "::error::Missing stable release asset: $asset"; exit 1; }
+          done
           sha256sum Lattice-* > SHA256SUMS
+          test "$(wc -l < SHA256SUMS | tr -d ' ')" -eq 5
           cat SHA256SUMS
 
       - name: List artifacts
         run: ls -la artifacts/
+
+      - name: Prepare truthful release notes
+        shell: bash
+        env:
+          MODE: ${{ env.MACOS_SIGNING_MODE }}
+        run: |
+          set -euo pipefail
+          cat > RELEASE_NOTES.md <<EOF
+          ## Downloads
+
+          | Platform | Device | Download |
+          |---|---|---|
+          | macOS | Apple Silicon | \`Lattice-${GITHUB_REF_NAME}-macOS-Apple-Silicon.dmg\` |
+          | macOS | Intel | \`Lattice-${GITHUB_REF_NAME}-macOS-Intel.dmg\` |
+          | Windows | x64 | \`Lattice-${GITHUB_REF_NAME}-Windows-x64.exe\` |
+          | Linux | x86_64 | \`Lattice-${GITHUB_REF_NAME}-Linux-x86_64.AppImage\` / \`.deb\` |
+
+          ## macOS signing status
+          EOF
+          case "$MODE" in
+            adhoc)
+              cat >> RELEASE_NOTES.md <<'EOF'
+
+          These macOS builds are **ad-hoc signed** for GitHub Release and
+          development/internal testing. They are **not Apple Developer ID
+          signed or notarized**. macOS Gatekeeper may require manual approval
+          on first launch: in Finder, right-click Lattice and choose **Open**,
+          or use **System Settings → Privacy & Security → Open Anyway**.
+          EOF
+              ;;
+            developer-id)
+              cat >> RELEASE_NOTES.md <<'EOF'
+
+          These macOS builds are signed with Apple Developer ID, notarized, and
+          stapled. The release workflow verified the final packaged apps.
+          EOF
+              ;;
+            *) echo "::error::Unknown MACOS_SIGNING_MODE: $MODE"; exit 1 ;;
+          esac
+          cat >> RELEASE_NOTES.md <<'EOF'
+
+          Desktop release only. Android/iOS build issues are tracked separately.
+          Windows/Linux ARM64 builds remain experimental and are not included
+          in the production downloads; see `docs/PLATFORM_SUPPORT.md`.
+          EOF
+          cat RELEASE_NOTES.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -295,18 +397,7 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          body: |
-            ## Downloads
-
-            | Platform | Device | Download |
-            |---|---|---|
-            | macOS | Apple Silicon | `Lattice-${{ github.ref_name }}-macOS-Apple-Silicon.dmg` |
-            | macOS | Intel | `Lattice-${{ github.ref_name }}-macOS-Intel.dmg` |
-            | Windows | x64 | `Lattice-${{ github.ref_name }}-Windows-x64.exe` |
-            | Linux | x86_64 | `Lattice-${{ github.ref_name }}-Linux-x86_64.AppImage` / `.deb` |
-
-            ARM64 (Windows / Linux) is cross-compiled but not runtime-verified;
-            see `docs/PLATFORM_SUPPORT.md`.
+          body_path: RELEASE_NOTES.md
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

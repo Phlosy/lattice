@@ -29,13 +29,35 @@ npx tauri build --config poc/tauri-app/src-tauri/tauri.conf.json
 
 Outputs are under `poc/tauri-app/src-tauri/target/release/bundle/`.
 
-## macOS Developer ID and notarization
+## macOS signing modes
 
-Public macOS artifacts are fail-closed: the release workflow will not publish a
-macOS DMG without a valid Developer ID signature, Apple notarization, and a
-stapled ticket.
+The release workflow supports two explicit modes, controlled by the repository
+variable `MACOS_SIGNING_MODE`:
 
-Configure these GitHub Actions secrets before pushing a release tag:
+| Mode | Intended use | Signing | Notarization / stapling |
+|---|---|---|---|
+| `adhoc` (default) | GitHub Release, development, internal testing | Tauri native signing with identity `-` | Not performed |
+| `developer-id` | Future production distribution to ordinary macOS users | Developer ID Application + hardened runtime | Required |
+
+### Ad-hoc mode (current v1.1.1 release)
+
+No Apple credentials are required or consumed. The Pi sidecar is signed first,
+then Tauri signs the app inside-out and packages the branded DMG. CI requires:
+
+```text
+codesign --verify --deep --strict --verbose=2 Lattice.app
+codesign -dv --verbose=4 Lattice.app  # must report Signature=adhoc
+strict codesign verification of every nested Mach-O
+mount final DMG and repeat all app/nested-code verification
+```
+
+Ad-hoc signing is real code signing, but it does not establish Apple Developer
+ID trust. The app is not notarized or stapled, and Gatekeeper may require manual
+approval on first launch.
+
+### Developer ID mode (future)
+
+Set repository variable `MACOS_SIGNING_MODE=developer-id` and configure:
 
 | Secret | Value |
 |---|---|
@@ -47,31 +69,16 @@ Configure these GitHub Actions secrets before pushing a release tag:
 | `APPLE_TEAM_ID` | Ten-character Apple Developer Team ID |
 | `KEYCHAIN_PASSWORD` | Random password for the temporary CI keychain |
 
-Export a certificate for CI:
-
-```bash
-openssl base64 -A -in DeveloperIDApplication.p12 -out certificate-base64.txt
-```
-
-The workflow imports the certificate into an ephemeral keychain, supplies the
-official Tauri notarization environment variables, then requires all of:
-
-```text
-codesign --verify --deep --strict
-spctl --assess --type execute
-xcrun stapler validate Lattice.app
-xcrun stapler validate Lattice.dmg
-```
-
-There is no quarantine-removal bypass in the production release process.
+Only this mode imports a temporary keychain, supplies notarization credentials,
+and requires Developer ID authority, Team ID, `spctl`, and stapler validation.
 
 ## GitHub Release
 
 A `v*` tag triggers `.github/workflows/release.yml`:
 
 ```text
-Tag → version check → platform build → signing/notarization → verification
-    → checksum → GitHub Release
+Tag → version check → platform build → selected signing mode → verification
+    → packaging → final-asset checksum → GitHub Release
 ```
 
 Blocking artifacts:
@@ -95,7 +102,9 @@ Before publishing:
 
 1. Mount the DMG and verify its branded drag-to-Applications presentation.
 2. Drag Lattice to Applications and launch it normally.
-3. Confirm Gatekeeper accepts it without warnings.
+3. In ad-hoc mode, verify Finder → right-click → Open or System Settings →
+   Privacy & Security → Open Anyway permits the trusted download. In
+   `developer-id` mode, confirm Gatekeeper accepts it without manual approval.
 4. Confirm Pi sidecar spawns (`[pi] spawned pid=…`).
 5. Open a git project, create a session, and send a prompt with and without an image.
 6. Switch English/Chinese, theme, and font size; restart and verify persistence.

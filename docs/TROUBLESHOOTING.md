@@ -59,20 +59,30 @@ pkill -f "pi .*mode rpc"
 
 Lattice shells out to the system `git` binary. Ensure `git` is on `PATH`.
 
-## macOS: "app is damaged / cannot be opened"
+## macOS: first launch is blocked
 
-Production releases starting with v1.1.1 are Developer ID signed, notarized,
-and stapled. Do **not** remove quarantine from a downloaded production build.
-Instead:
+The v1.1.1 GitHub/internal builds are ad-hoc signed, but are not Apple Developer
+ID signed or notarized. Gatekeeper may therefore block the first launch even
+though CI verified the app signature and release checksum.
 
-1. Download the DMG again from the official GitHub Release.
-2. Verify it against the release-wide `SHA256SUMS` file.
-3. Confirm the download is a v1.1.1-or-newer macOS artifact.
-4. If Gatekeeper still rejects it, report the macOS version, artifact name, and
-   `spctl --assess --type execute --verbose=4 /Applications/Lattice.app` output.
+First verify the DMG against `SHA256SUMS`, then use one of Apple's GUI paths:
 
-Locally built unsigned developer bundles are not production installers and are
-expected to be rejected when transferred through a quarantining channel.
+1. In Finder, right-click **Lattice.app** and choose **Open**, then confirm.
+2. Or attempt to launch once, then open **System Settings → Privacy & Security**
+   and choose **Open Anyway** for Lattice.
+
+Do not disable Gatekeeper globally (`spctl --master-disable`).
+
+Advanced/developer fallback for a build downloaded from this repository whose
+checksum you have verified:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Lattice.app"
+```
+
+Only use that command for a Lattice build whose source and checksum you trust.
+Future `developer-id` releases will use Apple notarization and stapling instead
+of requiring this manual first-launch approval.
 
 ## Linux: window does not open
 

@@ -13,6 +13,11 @@ cd "$ROOT"
 FULL=false
 [[ "${1:-}" == "--full" ]] && FULL=true
 
+CARGO_BIN="$(command -v cargo 2>/dev/null || true)"
+if [[ -z "$CARGO_BIN" && -x "$HOME/.cargo/bin/cargo" ]]; then
+  CARGO_BIN="$HOME/.cargo/bin/cargo"
+fi
+
 PASS=0
 FAIL=0
 
@@ -63,6 +68,17 @@ check "frontend built (poc/tauri-app/dist/index.html)" \
   test -f "poc/tauri-app/dist/index.html"
 check "Rust release binary built" \
   test -f "poc/tauri-app/src-tauri/target/release/poctauri-app"
+check "macOS signing verifier is valid shell" \
+  bash -n scripts/verify-macos-signing.sh
+check "macOS default signing identity is ad-hoc" \
+  node -e 'const c=require("./poc/tauri-app/src-tauri/tauri.conf.json"); process.exit(c.bundle?.macOS?.signingIdentity === "-" ? 0 : 1)'
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  APP="poc/tauri-app/src-tauri/target/release/bundle/macos/Lattice.app"
+  DMG="$(find poc/tauri-app/src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit 2>/dev/null || true)"
+  check "macOS app and final DMG pass ad-hoc signature verification" \
+    bash -c 'MACOS_SIGNING_MODE=adhoc bash scripts/verify-macos-signing.sh "$1" "$2"' _ "$APP" "$DMG"
+fi
 
 echo ""
 echo "Docs"
@@ -74,7 +90,7 @@ if $FULL; then
   echo "Tests (--full)"
   check "frontend tests pass" npx vitest --run
   check "Rust tests pass" \
-    bash -c 'cd poc/tauri-app/src-tauri && cargo test --release'
+    bash -c 'cd poc/tauri-app/src-tauri && "$1" test --release' _ "$CARGO_BIN"
 fi
 
 echo ""

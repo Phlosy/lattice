@@ -1,11 +1,15 @@
 # Lattice v1.1.1 Repair Plan
 
-Status: approved for implementation
+Status: implemented; signing policy updated for GitHub/internal distribution
+
+> Update: v1.1.1 uses verified ad-hoc signing because the project is not yet in
+> the Apple Developer Program. Developer ID/notarization remains an opt-in
+> future production mode rather than a blocker for this internal release.
 
 ## Scope
 
-Repair the macOS installer experience, prevent public unsigned macOS releases,
-restore production Tauri controls that currently fall through to the stub, and
+Repair the macOS installer experience, prevent unsigned macOS application
+bundles, restore production Tauri controls that currently fall through to the stub, and
 make Pi provider/model credentials visible to Finder-launched builds.
 
 The frozen architecture remains unchanged:
@@ -42,16 +46,17 @@ The frozen architecture remains unchanged:
   icon size remains the bundler default and is verified visually.
 - Keep the source generator so the artwork is reproducible.
 
-### 2. Fail-closed macOS distribution
+### 2. Fail-closed macOS signing
 
-- Release macOS builds require these GitHub secrets:
-  `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`,
-  `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`, and
-  `KEYCHAIN_PASSWORD`.
-- Import the Developer ID certificate into a temporary keychain.
-- Let Tauri sign and notarize using the official environment-variable contract.
-- Before upload, require strict `codesign`, Gatekeeper `spctl`, and stapler
-  validation. No unsigned macOS artifact is published as a production release.
+- Default `MACOS_SIGNING_MODE=adhoc` for GitHub/internal distribution. Sign the
+  nested Pi Mach-O first, then let Tauri sign the app and package the DMG.
+- Verify `Signature=adhoc`, strict/deep app validity, every nested Mach-O, and
+  the app extracted from the final DMG. Do not notarize or staple in this mode.
+- Retain `MACOS_SIGNING_MODE=developer-id` for future ordinary-user production
+  distribution. Only that mode requires Apple credentials, imports a temporary
+  keychain, notarizes, runs `spctl`, and validates stapled tickets.
+- Release notes must state the actual mode and never imply ad-hoc artifacts are
+  Apple Developer ID signed or notarized.
 
 ### 3. Production adapter completeness
 
@@ -98,14 +103,15 @@ The repair is complete only when:
    as well as OpenAI where credentials exist.
 5. The generated DMG opens with the branded background and drag-to-Applications
    layout.
-6. A signed release candidate passes `codesign --deep --strict`, `spctl`, and
-   `stapler validate` before upload.
+6. The ad-hoc release candidate and final DMG pass deep/strict `codesign` plus
+   nested Mach-O validation. Developer ID mode additionally requires `spctl`
+   and `stapler validate` before upload.
 7. Versions are unified at `1.1.1`, CI passes, tag `v1.1.1` is created, and the
    published release artifacts/checksums are verified.
 
-## External blocker
+## Future production distribution
 
-Criterion 6 and publication of a non-damaged macOS build require valid Apple
-Developer ID and notarization secrets. Code and local unsigned layout validation
-can proceed without them, but a production macOS release must not bypass this
-gate.
+Ordinary-user distribution without manual Gatekeeper approval still requires
+Apple Developer Program membership, a Developer ID Application certificate,
+hardened runtime signing, notarization, and stapling. That work is intentionally
+separate from the verified ad-hoc GitHub/internal v1.1.1 release.

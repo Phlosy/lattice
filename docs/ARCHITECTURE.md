@@ -122,8 +122,9 @@ Production installers bundle:
 - Pi runtime resources and permission extension;
 - the React production bundle.
 
-A user-installed Node/npm/Bun/Pi is not required. Public macOS releases are
-Developer ID signed, notarized, Gatekeeper-assessed, and stapled before upload.
+A user-installed Node/npm/Bun/Pi is not required. GitHub/internal macOS builds
+are ad-hoc signed and verified after final DMG packaging. Future ordinary-user
+production distribution uses the retained Developer ID/notarization mode.
 
 See:
 

@@ -66,10 +66,21 @@ scripts/release-check.sh --full
 
 ## macOS signing
 
-Unsigned local builds are developer artifacts. Public v1.1.1-or-newer macOS
-releases are fail-closed on Developer ID signing, Apple notarization, Gatekeeper
-assessment, and stapling. Required GitHub secrets and certificate export steps
-are documented in [`RELEASE.md`](RELEASE.md).
+Tauri defaults to ad-hoc identity `-` for development/GitHub internal releases.
+The build script signs the nested Pi Mach-O first; Tauri then signs the app and
+packages the branded DMG. Verify the build-directory app and the app inside the
+final DMG with:
+
+```bash
+MACOS_SIGNING_MODE=adhoc scripts/verify-macos-signing.sh \
+  poc/tauri-app/src-tauri/target/release/bundle/macos/Lattice.app \
+  poc/tauri-app/src-tauri/target/release/bundle/dmg/Lattice_*.dmg
+```
+
+Ad-hoc builds are not Apple Developer ID signed or notarized. Future production
+distribution can set `MACOS_SIGNING_MODE=developer-id` and configure the Apple
+credentials documented in [`RELEASE.md`](RELEASE.md); no workflow redesign is
+required.
 
 ## CI/CD
 

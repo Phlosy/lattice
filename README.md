@@ -45,6 +45,14 @@ Then open a folder, authenticate a provider (Settings → add an API key, or use
 an existing `~/.pi/agent/auth.json` / env var such as `ANTHROPIC_API_KEY`),
 create a session, and start prompting.
 
+### macOS GitHub builds
+
+Current GitHub/internal macOS builds are ad-hoc signed, not Apple Developer ID
+signed or notarized. If Gatekeeper blocks the first launch, verify the published
+SHA256 checksum, then Finder → right-click **Lattice** → **Open**, or use
+**System Settings → Privacy & Security → Open Anyway**. Do not disable
+Gatekeeper globally.
+
 ## Scripts
 
 | Command | Description |
