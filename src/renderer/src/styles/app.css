@@ -1196,6 +1196,15 @@ kbd {
 }
 
 /* ---- Workbench views ------------------------------------------------------ */
+/* FlexLayout's .flexlayout__layout is position:absolute and fills its nearest
+   positioned ancestor — this container pins it to the right of the sidebar. */
+.dock-container {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
 .conversation-view {
   display: flex;
   flex-direction: column;
@@ -1205,10 +1214,6 @@ kbd {
 
 /* ---- Dock engine (FlexLayout) theming ------------------------------------
    `dark.css` is imported for structure; these overrides bind it to tokens. */
-.workspace .flexlayout__layout {
-  flex: 1;
-  min-height: 0;
-}
 .flexlayout__layout {
   background: var(--bg-app);
 }

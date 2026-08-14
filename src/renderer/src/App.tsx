@@ -75,7 +75,9 @@ export default function App() {
             <>
               <SessionTabs />
               <TopBar onMenu={() => setSidebarOpen(true)} />
-              <DockWorkbench />
+              <div className="dock-container">
+                <DockWorkbench />
+              </div>
             </>
           )}
           {view === "settings" && <SettingsView />}
