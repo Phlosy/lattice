@@ -18,6 +18,10 @@
   --surface-4: #26262e;       /* active / pressed */
   --surface-inset: #0e0e12;   /* recessed areas (terminal, diff) */
 
+  /* Terminal semantic aliases (consume these, not hex) */
+  --terminal-bg: var(--surface-inset);
+  --terminal-fg: var(--text-primary);
+
   /* ---- Borders ------------------------------------------------------------ */
   --border: #26262e;
   --border-subtle: #1d1d24;
@@ -55,8 +59,8 @@
   /* ---- Typography --------------------------------------------------------- */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto,
     "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo,
-    Consolas, monospace;
+  --font-mono: "SF Mono", "JetBrains Mono", "FiraCode Nerd Font",
+    "MesloLGS NF", "Cascadia Code", ui-monospace, Menlo, Consolas, monospace;
 
   /* Type scale */
   --fs-10: 10px;

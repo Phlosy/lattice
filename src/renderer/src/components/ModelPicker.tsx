@@ -1,5 +1,5 @@
-// ModelPicker — model selector popover, shared between the TopBar and the
-// Sidebar's bottom model badge (Codex-style).
+// ModelPicker — the single model selector (header). Capability-driven via
+// the model list; selecting requires an active session (guarded in the store).
 
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../store/useApp";
@@ -16,16 +16,9 @@ function groupModels(models: ModelInfo[]): Array<{ provider: string; models: Mod
   return [...map.entries()].map(([provider, models]) => ({ provider, models }));
 }
 
-export function ModelPicker({
-  variant = "picker",
-  align = "right",
-}: {
-  variant?: "picker" | "badge";
-  align?: "left" | "right";
-}) {
+export function ModelPicker({ align = "right" }: { align?: "left" | "right" }) {
   const t = useT();
   const models = useApp((s) => s.models);
-  const activeSessionId = useApp((s) => s.activeSessionId);
   const sessionState = useApp((s) => s.sessionState);
   const loadModels = useApp((s) => s.loadModels);
   const setModel = useApp((s) => s.setModel);
@@ -70,17 +63,10 @@ export function ModelPicker({
 
   return (
     <div ref={ref} className="model-picker" style={{ position: "relative" }}>
-      {variant === "badge" ? (
-        <button className="model-badge" disabled={disabled} onClick={() => setOpen((v) => !v)}>
-          <span className="model-badge-name">{model ? model.name : t("topbar.selectModel")}</span>
-          <span className="chev">▾</span>
-        </button>
-      ) : (
-        <button className="picker-btn" disabled={disabled} onClick={() => setOpen((v) => !v)}>
-          {model ? model.name : t("topbar.selectModel")}
-          <span className="chev">▾</span>
-        </button>
-      )}
+      <button className="picker-btn" disabled={disabled} onClick={() => setOpen((v) => !v)}>
+        {model ? model.name : t("topbar.selectModel")}
+        <span className="chev">▾</span>
+      </button>
       {open && (
         <div
           className="popover"

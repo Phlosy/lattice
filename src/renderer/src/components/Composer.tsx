@@ -128,7 +128,7 @@ export function Composer() {
       : [];
 
   const queueCount = steering.length + followUp.length;
-  const disabled = !sessionState?.model;
+  const hasModel = !!sessionState?.model;
   const branch = gitStatus?.branch ?? "main";
 
   return (
@@ -200,13 +200,12 @@ export function Composer() {
           <textarea
             ref={textareaRef}
             rows={1}
-            placeholder={disabled ? t("composer.placeholderNoModel") : t("composer.placeholder")}
+            placeholder={t("composer.placeholder")}
             value={text}
             onChange={handleChange}
             onKeyDown={onKeyDown}
             onPaste={onPaste}
             autoFocus
-            disabled={disabled}
           />
           {running ? (
             <button className="stop-btn" onClick={() => void abort()} data-tooltip={`${t("composer.stop")} (Esc)`}>
@@ -214,10 +213,10 @@ export function Composer() {
             </button>
           ) : (
             <button
-              className={`send-btn ${(text.trim() || attachments.length > 0) && !disabled ? "active" : ""}`}
+              className={`send-btn ${(text.trim() || attachments.length > 0) && hasModel ? "active" : ""}`}
               onClick={() => void submit()}
-              disabled={(!text.trim() && attachments.length === 0) || disabled}
-              data-tooltip={`${t("composer.send")} (⏎)`}
+              disabled={(!text.trim() && attachments.length === 0) || !hasModel}
+              data-tooltip={hasModel ? `${t("composer.send")} (⏎)` : t("topbar.selectModel")}
             >
               <ArrowUp size={15} strokeWidth={2.2} aria-hidden="true" />
             </button>

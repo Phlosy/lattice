@@ -114,6 +114,7 @@ const en = {
   "settings.permDesc": "Mutating tools (bash, write, edit) always require explicit approval. Read-only tools can be auto-approved.",
   "settings.about": "About",
   "settings.aboutDesc": "Lattice — a desktop coding agent powered by the Pi runtime.",
+  "settings.noReasoning": "This model does not support reasoning control",
 
   // Runtime (local / remote Pi)
   "settings.runtime": "Runtime",
@@ -250,6 +251,7 @@ const zh: Record<keyof typeof en, string> = {
   "settings.permDesc": "修改型工具（bash、write、edit）始终需要明确批准；只读工具可以自动批准。",
   "settings.about": "关于",
   "settings.aboutDesc": "Lattice — 一个由 Pi 运行时驱动的桌面编码 agent。",
+  "settings.noReasoning": "该模型不支持推理控制",
 
   "settings.runtime": "运行时",
   "settings.runtimeMode": "运行时模式",

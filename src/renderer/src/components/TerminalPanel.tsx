@@ -26,7 +26,7 @@ const XTERM_THEMES = {
     brightWhite: "#ffffff",
   },
   light: {
-    background: "#ffffff",
+    background: "#f0f0f3",
     foreground: "#19191d",
     cursor: "#2f6fdc",
     cursorAccent: "#ffffff",
@@ -64,7 +64,8 @@ export function TerminalPanel() {
   useEffect(() => {
     if (!containerRef.current || !activeId) return;
     const term = new Terminal({
-      fontFamily: "'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace",
+      fontFamily:
+        "'MesloLGS NF', 'FiraCode Nerd Font', 'JetBrains Mono', 'Cascadia Code', 'SF Mono', ui-monospace, Menlo, Consolas, monospace",
       fontSize: 12,
       fontWeight: "300",
       lineHeight: 1.5,

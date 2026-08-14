@@ -170,6 +170,8 @@ export interface ModelInfo {
   input: string[];
   /** Whether the provider has valid auth configured (key/OAuth available). */
   available?: boolean;
+  /** Reasoning levels this model supports (derived from Pi's thinkingLevelMap). */
+  thinkingLevels?: string[];
 }
 
 export interface ProviderInfo {

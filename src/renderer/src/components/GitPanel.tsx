@@ -76,61 +76,66 @@ export function GitPanel() {
 
   return (
     <div className="git-panel">
-      <div className="git-files">
-        <div className="git-files-head">
-          <span className="branch">{gitStatus.branch}</span>
-          <span className={gitStatus.clean ? "clean" : "dirty"}>
-            {gitStatus.clean ? t("git.clean") : `${gitStatus.files.length} ${t("git.changed")}`}
-          </span>
-        </div>
-        <div className="git-files-list">
-          {gitStatus.files.map((f) => (
-            <div
-              key={f.path}
-              className={`item ${selected === f.path ? "active" : ""}`}
-              onClick={() => setSelected(f.path)}
-            >
-              <span className={`file-status ${f.index === "?" ? "untracked" : f.index !== " " ? "staged" : "modified"}`}>
-                {f.index === "?" ? "U" : f.index === " " ? "M" : f.index.toUpperCase()}
-              </span>
-              <span className="item-label">{f.path}</span>
-            </div>
-          ))}
-          {gitStatus.files.length === 0 && <div className="empty-state">{t("git.noChanges")}</div>}
-        </div>
-
-        {/* Worktrees */}
-        <div className="wt-section">
-          <div className="wt-head" onClick={() => setShowWt((v) => !v)}>
-            <span>{t("git.worktrees")}</span>
-            <span className="chev">{showWt ? "▾" : "▸"}</span>
+      <div className="git-main">
+        <div className="git-files">
+          <div className="git-files-head">
+            <span className="branch">{gitStatus.branch}</span>
+            <span className={gitStatus.clean ? "clean" : "dirty"}>
+              {gitStatus.clean ? t("git.clean") : `${gitStatus.files.length} ${t("git.changed")}`}
+            </span>
           </div>
-          {showWt && (
-            <div className="wt-body">
-              {worktrees.map((wt) => (
-                <div key={wt.path} className="wt-row" title={wt.path}>
-                  <span className="status-dot success" />
-                  <span className="wt-branch">{wt.branch}</span>
-                  {wt.locked && <span className="wt-locked">🔒</span>}
-                </div>
-              ))}
-              <div className="wt-create">
-                <input
-                  value={wtBranch}
-                  onChange={(e) => setWtBranch(e.target.value)}
-                  placeholder={t("git.worktreeBranch")}
-                />
-                <button className="btn btn-sm" onClick={() => void createWorktree()} disabled={!wtBranch.trim()}>
-                  {t("git.createWorktree")}
-                </button>
+          <div className="git-files-list">
+            {gitStatus.files.map((f) => (
+              <div
+                key={f.path}
+                className={`git-file-row ${selected === f.path ? "active" : ""}`}
+                onClick={() => setSelected(f.path)}
+              >
+                <span className={`file-status ${f.index === "?" ? "untracked" : f.index !== " " ? "staged" : "modified"}`}>
+                  {f.index === "?" ? "U" : f.index === " " ? "M" : f.index.toUpperCase()}
+                </span>
+                <span className="git-file-path">{f.path}</span>
+                <span className="git-file-stat">
+                  {f.added > 0 || f.removed > 0 ? `+${f.added} −${f.removed}` : ""}
+                </span>
               </div>
-            </div>
-          )}
-        </div>
-      </div>
+            ))}
+            {gitStatus.files.length === 0 && <div className="empty-state">{t("git.noChanges")}</div>}
+          </div>
 
-      <div className="git-diff">
-        {selected ? <DiffViewer diff={diff} /> : <div className="empty-state">{t("git.selectFile")}</div>}
+          {/* Worktrees */}
+          <div className="wt-section">
+            <div className="wt-head" onClick={() => setShowWt((v) => !v)}>
+              <span>{t("git.worktrees")}</span>
+              <span className="chev">{showWt ? "▾" : "▸"}</span>
+            </div>
+            {showWt && (
+              <div className="wt-body">
+                {worktrees.map((wt) => (
+                  <div key={wt.path} className="wt-row" title={wt.path}>
+                    <span className="status-dot success" />
+                    <span className="wt-branch">{wt.branch}</span>
+                    {wt.locked && <span className="wt-locked">🔒</span>}
+                  </div>
+                ))}
+                <div className="wt-create">
+                  <input
+                    value={wtBranch}
+                    onChange={(e) => setWtBranch(e.target.value)}
+                    placeholder={t("git.worktreeBranch")}
+                  />
+                  <button className="btn btn-sm" onClick={() => void createWorktree()} disabled={!wtBranch.trim()}>
+                    {t("git.createWorktree")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="git-diff">
+          {selected ? <DiffViewer diff={diff} /> : <div className="empty-state">{t("git.selectFile")}</div>}
+        </div>
       </div>
       {!gitStatus.clean && (
         <div className="git-commit-bar">

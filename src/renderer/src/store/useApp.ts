@@ -20,6 +20,7 @@ import {
   type TranscriptState,
 } from "../lib/session-reducer";
 import { appendTerminalData, clearTerminalBuffer } from "../lib/terminal-buffer";
+import { normalizeModel } from "../lib/model";
 
 export type View = "chat" | "settings" | "extensions";
 export type PanelKind = "terminal" | "git";
@@ -411,7 +412,7 @@ export const useApp = create<AppStore>((set, get) => ({
 
   loadModels: async () => {
     const [providers, models] = await Promise.all([api().getProviders(), api().getModels()]);
-    set({ providers, models });
+    set({ providers, models: (models as ModelInfo[]).map(normalizeModel) });
   },
 
   setModel: async (providerId, modelId) => {

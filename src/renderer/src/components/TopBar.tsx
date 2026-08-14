@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { GitBranch, Menu, Settings, SquareTerminal } from "lucide-react";
 import { useApp } from "../store/useApp";
+import { DEFAULT_THINKING_LEVELS } from "../lib/model";
 import { useT } from "../i18n";
 import { ModelPicker } from "./ModelPicker";
-
-// Common denominator supported by current reasoning providers. Provider-only
-// levels (for example xhigh/max) stay hidden until the API exposes Pi's
-// get_available_thinking_levels response.
-const THINKING_LEVELS = ["off", "low", "medium", "high"] as const;
 
 export function TopBar({ onMenu }: { onMenu?: () => void }) {
   const sessionState = useApp((s) => s.sessionState);
@@ -21,12 +18,14 @@ export function TopBar({ onMenu }: { onMenu?: () => void }) {
 
   const thinkPop = usePopover();
   const thinking = sessionState?.thinkingLevel ?? "medium";
+  const levels = sessionState?.model?.thinkingLevels ?? [...DEFAULT_THINKING_LEVELS];
+  const reasoningSupported = sessionState?.model?.reasoning !== false;
 
   return (
     <div className="topbar">
       {onMenu && (
         <button className="icon-btn topbar-menu" onClick={onMenu} aria-label="Menu">
-          ☰
+          <Menu size={16} />
         </button>
       )}
       <div className="topbar-context">
@@ -45,7 +44,8 @@ export function TopBar({ onMenu }: { onMenu?: () => void }) {
         <div ref={thinkPop.ref} style={{ position: "relative" }}>
           <button
             className="picker-btn"
-            disabled={!sessionState}
+            disabled={!sessionState || !reasoningSupported}
+            data-tooltip={reasoningSupported ? t("topbar.reasoning") : t("settings.noReasoning")}
             onClick={() => thinkPop.setOpen((v) => !v)}
           >
             {thinking}
@@ -55,7 +55,7 @@ export function TopBar({ onMenu }: { onMenu?: () => void }) {
             <div className="popover" style={{ top: "100%", right: 0, marginTop: 4, width: 180 }}>
               <div className="popover-header">{t("topbar.reasoning")}</div>
               <div className="popover-list">
-                {THINKING_LEVELS.map((level) => (
+                {levels.map((level) => (
                   <button
                     key={level}
                     className={`popover-item ${thinking === level ? "selected" : ""}`}
@@ -84,7 +84,7 @@ export function TopBar({ onMenu }: { onMenu?: () => void }) {
         disabled={!currentProject}
         onClick={() => void createTerminal()}
       >
-        ⌘
+        <SquareTerminal size={16} />
       </button>
       {gitStatus && (
         <button
@@ -92,12 +92,13 @@ export function TopBar({ onMenu }: { onMenu?: () => void }) {
           data-tooltip={t("topbar.git")}
           onClick={() => togglePanel("git")}
         >
+          <GitBranch size={14} />
           <span className="git-branch">{gitStatus.branch}</span>
           {!gitStatus.clean && <span className="git-changes">{gitStatus.files.length}</span>}
         </button>
       )}
       <button className="icon-btn" data-tooltip={t("sidebar.settings")} onClick={() => setView("settings")}>
-        ⚙
+        <Settings size={16} />
       </button>
     </div>
   );

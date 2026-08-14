@@ -1,6 +1,7 @@
 // Session tabs — Codex-style top tab bar for multi-session parallel work.
 // Each open session is a tab; tabs can be switched and closed.
 
+import { Plus, X } from "lucide-react";
 import { useApp } from "../store/useApp";
 
 export function SessionTabs() {
@@ -41,13 +42,13 @@ export function SessionTabs() {
                 void closeSessionTab(id);
               }}
             >
-              ✕
+              <X size={13} />
             </span>
           </div>
         );
       })}
       <button className="tab-new" data-tooltip="New session" disabled={running} onClick={() => void createSession()}>
-        ＋
+        <Plus size={14} />
       </button>
     </div>
   );

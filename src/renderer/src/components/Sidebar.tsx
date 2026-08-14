@@ -1,8 +1,17 @@
 import { useState } from "react";
+import {
+  Blocks,
+  FolderOpen,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Pencil,
+  Plus,
+  Settings,
+  Trash2,
+} from "lucide-react";
 import { useApp } from "../store/useApp";
 import { useT } from "../i18n";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
-import { ModelPicker } from "./ModelPicker";
 
 interface MenuState {
   x: number;
@@ -86,7 +95,7 @@ export function Sidebar() {
           </span>
         )}
         <button className="icon-btn" data-tooltip={collapsed ? "Expand" : "Collapse"} onClick={() => toggleSidebar()}>
-          {collapsed ? "▶" : "◀"}
+          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
         </button>
       </div>
 
@@ -95,7 +104,7 @@ export function Sidebar() {
           <div className="sidebar-section-title">
             {t("sidebar.projects")}
             <button className="icon-btn" data-tooltip={t("sidebar.openFolder")} onClick={() => void openProject()}>
-              ▤
+              <FolderOpen size={15} />
             </button>
           </div>
         )}
@@ -140,7 +149,7 @@ export function Sidebar() {
                 disabled={running}
                 onClick={() => void createSession()}
               >
-                ＋
+                <Plus size={15} />
               </button>
             </div>
           )}
@@ -191,7 +200,7 @@ export function Sidebar() {
                                 startRename(s.id);
                               }}
                             >
-                              ✎
+                              <Pencil size={13} />
                             </button>
                             <button
                               className="icon-btn"
@@ -201,7 +210,7 @@ export function Sidebar() {
                                 if (s.file) void deleteSession(s.file);
                               }}
                             >
-                              🗑
+                              <Trash2 size={13} />
                             </button>
                           </span>
                         </>
@@ -225,29 +234,26 @@ export function Sidebar() {
 
       <div className="sidebar-footer">
         <button className="icon-btn" data-tooltip={t("sidebar.extensions")} onClick={() => setView("extensions")}>
-          ⧉
+          <Blocks size={16} />
         </button>
         <button className="icon-btn" data-tooltip={t("sidebar.settings")} onClick={() => setView("settings")}>
-          ⚙
+          <Settings size={16} />
         </button>
         {collapsed ? (
           <button className="icon-btn" data-tooltip="New session" onClick={() => void createSession()} disabled={!currentProject || running}>
-            ＋
+            <Plus size={16} />
           </button>
         ) : (
           <>
             <div style={{ flex: 1 }} />
             <button className="btn btn-primary btn-sm" onClick={() => void createSession()} disabled={!currentProject || running}>
-              ＋ {t("sidebar.new")}
+              <Plus size={13} /> {t("sidebar.new")}
             </button>
           </>
         )}
       </div>
 
-      {/* Model badge (Codex-style, bottom of sidebar) */}
-      <div className="sidebar-model">
-        <ModelPicker variant="badge" align="left" />
-      </div>
+      {/* Model selection lives in the header (TopBar) — a single entry point. */}
 
       {menu && <ContextMenu items={menu.items} x={menu.x} y={menu.y} onClose={() => setMenu(null)} />}
     </aside>
