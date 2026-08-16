@@ -25,6 +25,7 @@ pub fn run() {
     builder
         .invoke_handler(tauri::generate_handler![
             app::app_info,
+            app::runtime_capabilities,
             pi::pi_set_cwd,
             pi::pi_prompt,
             pi::pi_respond_ui,

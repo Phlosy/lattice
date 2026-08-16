@@ -224,6 +224,19 @@ fn method_to_local(method: &str, params: &Value) -> Option<Result<Value, String>
         )),
         "project.list" => plain!(Ok(poctauri_app_lib::projects::get_projects())),
         "project.remove" => plain!(poctauri_app_lib::projects::remove_project(get_s("path"))),
+        "runtime.capabilities" => Some(Ok(json!({
+            "chat": true,
+            "sessions": true,
+            "sessionResume": true,
+            "filesystem": true,
+            "git": true,
+            "shell": true,
+            "pty": false,
+            "skills": true,
+            "extensions": false,
+            "subagents": true,
+            "remoteFilesystem": true,
+        }))),
         _ => None,
     }
 }
