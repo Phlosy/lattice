@@ -507,7 +507,7 @@ export const useApp = create<AppStore>((set, get) => ({
     const cwd = currentProject?.path ?? "";
     const meta = (await api().createTerminal(cwd)) as TerminalMeta;
     set({ terminals: [...get().terminals, meta] });
-    workbenchCommands.openView("terminal");
+    workbenchCommands.openTerminal(meta.id);
   },
 
   killTerminal: async (id) => {

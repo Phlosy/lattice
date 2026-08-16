@@ -3,7 +3,7 @@ import { Model } from "flexlayout-react";
 import { defaultLayoutJson } from "../src/renderer/src/workbench/layout";
 
 describe("workbench layout model", () => {
-  it("default is a vertical split: conversation top, [terminal, git] bottom", () => {
+  it("default is a horizontal split: conversation left, git right (no terminal)", () => {
     const json = defaultLayoutJson();
     expect(json.global?.rootOrientationVertical).toBe(true);
 
@@ -11,14 +11,14 @@ describe("workbench layout model", () => {
     expect(root.type).toBe("row");
     expect(root.children?.length).toBe(2);
 
-    const [top, bottom] = root.children ?? [];
-    expect(top.type).toBe("tabset");
-    expect(bottom.type).toBe("tabset");
+    const [left, right] = root.children ?? [];
+    expect(left.type).toBe("tabset");
+    expect(right.type).toBe("tabset");
 
-    const topTabs = (top as { children?: Array<{ component?: string }> }).children ?? [];
-    const bottomTabs = (bottom as { children?: Array<{ component?: string }> }).children ?? [];
-    expect(topTabs.map((t) => t.component)).toEqual(["conversation"]);
-    expect(bottomTabs.map((t) => t.component)).toEqual(["terminal", "git"]);
+    const leftTabs = (left as { children?: Array<{ component?: string }> }).children ?? [];
+    const rightTabs = (right as { children?: Array<{ component?: string }> }).children ?? [];
+    expect(leftTabs.map((t) => t.component)).toEqual(["conversation"]);
+    expect(rightTabs.map((t) => t.component)).toEqual(["git"]);
   });
 
   it("round-trips through the FlexLayout Model (fromJson → toJson)", () => {
@@ -30,7 +30,6 @@ describe("workbench layout model", () => {
       n.type === "tabset" ? ((n.children ?? []) as Array<{ component?: string }>).map((t) => t.component) : [],
     );
     expect(components).toContain("conversation");
-    expect(components).toContain("terminal");
     expect(components).toContain("git");
   });
 

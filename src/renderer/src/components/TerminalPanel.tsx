@@ -7,7 +7,16 @@ import { useT } from "../i18n";
 import { getTerminalBuffer } from "../lib/terminal-buffer";
 import { useTheme, terminalThemeFor } from "../theme/theme";
 
-export function TerminalPanel() {
+function basename(path: string): string {
+  return path.split("/").filter(Boolean).pop() ?? path;
+}
+
+/**
+ * Renders a single PTY. In dedicated mode (a workbench tab bound to one
+ * terminal id) it shows just that terminal; in legacy mode (no id) it shows
+ * the multi-PTY tab strip and binds to the most recent terminal.
+ */
+export function TerminalPanel({ terminalId }: { terminalId?: string }) {
   const t = useT();
   const terminals = useApp((s) => s.terminals);
   const killTerminal = useApp((s) => s.killTerminal);
@@ -15,14 +24,18 @@ export function TerminalPanel() {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Keep a stable active terminal id.
+  // Legacy mode (no id): keep a stable active terminal id across re-renders.
+  const [fallbackId, setFallbackId] = useState<string | null>(null);
   useEffect(() => {
-    if (terminals.length > 0 && (!activeId || !terminals.some((t) => t.id === activeId))) {
-      setActiveId(terminals[terminals.length - 1].id);
+    if (terminalId) return;
+    if (terminals.length > 0 && (!fallbackId || !terminals.some((t) => t.id === fallbackId))) {
+      setFallbackId(terminals[terminals.length - 1].id);
     }
-  }, [terminals, activeId]);
+  }, [terminals, terminalId, fallbackId]);
+
+  const activeId = terminalId ?? fallbackId;
+  const active = terminals.find((t) => t.id === activeId);
 
   useEffect(() => {
     if (!containerRef.current || !activeId) return;
@@ -90,7 +103,7 @@ export function TerminalPanel() {
     }
   }, [theme]);
 
-  if (terminals.length === 0) {
+  if (!active) {
     return (
       <div className="empty-state" style={{ flex: 1 }}>
         <div className="icon">⌘</div>
@@ -101,26 +114,40 @@ export function TerminalPanel() {
 
   return (
     <div className="terminal-wrap">
-      <div className="terminal-tabs">
-        {terminals.map((terminal) => (
-          <button
-            key={terminal.id}
-            className={`terminal-tab ${terminal.id === activeId ? "active" : ""}`}
-            onClick={() => setActiveId(terminal.id)}
-          >
-            {terminal.title || terminal.id}
-            <span
-              className="term-close"
-              onClick={(event) => {
-                event.stopPropagation();
-                void killTerminal(terminal.id);
-              }}
+      {!terminalId && terminals.length > 1 && (
+        <div className="terminal-tabs">
+          {terminals.map((terminal) => (
+            <button
+              key={terminal.id}
+              className={`terminal-tab ${terminal.id === activeId ? "active" : ""}`}
+              onClick={() => setFallbackId(terminal.id)}
             >
-              ✕
-            </span>
+              {terminal.title || terminal.id}
+              <span
+                className="term-close"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void killTerminal(terminal.id);
+                }}
+              >
+                ✕
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {terminalId && (
+        <div className="terminal-single-head">
+          <span className="terminal-single-title">{basename(active.cwd) || "terminal"}</span>
+          <button
+            className="icon-btn"
+            data-tooltip={t("term.close")}
+            onClick={() => void killTerminal(active.id)}
+          >
+            ✕
           </button>
-        ))}
-      </div>
+        </div>
+      )}
       <div className="terminal-host" ref={containerRef} />
     </div>
   );

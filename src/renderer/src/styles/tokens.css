@@ -41,7 +41,7 @@
   --flexlayout-color-tabset-background: var(--bg-app);
   --flexlayout-color-tabset-background-selected: var(--bg-app);
   --flexlayout-color-tabset-background-maximized: var(--bg-app);
-  --flexlayout-color-tabset-divider-line: var(--border-subtle);
+  --flexlayout-color-tabset-divider-line: var(--panel-divider);
 
   --flexlayout-color-tab-selected: var(--text-primary);
   --flexlayout-color-tab-selected-background: var(--surface-2);
@@ -51,7 +51,7 @@
   --flexlayout-color-tab-textbox-background: var(--surface-2);
 
   --flexlayout-color-border-background: var(--border-subtle);
-  --flexlayout-color-border-divider-line: var(--border-subtle);
+  --flexlayout-color-border-divider-line: var(--panel-divider);
   --flexlayout-color-border-tab-selected: var(--accent);
   --flexlayout-color-border-tab-selected-background: transparent;
   --flexlayout-color-border-tab-unselected: transparent;
@@ -93,6 +93,8 @@
   --border-subtle: #1d1d24;
   --border-strong: #34343d;
   --border-focus: #6ea8fe;
+  /* 1px panel divider — clearly visible on both themes. */
+  --panel-divider: #2e2e38;
 
   /* ---- Text --------------------------------------------------------------- */
   --text-primary: #ececef;
@@ -208,6 +210,7 @@
   --border-subtle: #ececf0;
   --border-strong: #c9c9d0;
   --border-focus: #2f6fdc;
+  --panel-divider: rgba(0, 0, 0, 0.16);
   --text-primary: #19191d;
   --text-secondary: #55555e;
   --text-muted: #85858e;

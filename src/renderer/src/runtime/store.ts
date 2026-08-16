@@ -12,6 +12,7 @@ import type {
 } from "./types";
 import { NO_CAPABILITIES, mergeCapabilities } from "./capabilities";
 import { RuntimeManager } from "./manager";
+import { discoverInstalledPi, setInstalledExecutable } from "./discovery-client";
 import {
   loadProfiles,
   getActiveProfileId,
@@ -45,6 +46,8 @@ export interface RuntimeStore {
   info: RuntimeInfo | null;
   capabilities: RuntimeCapabilities;
   api: LatticeApi | null;
+  /** True while a profile switch / connect is in flight (drives the overlay). */
+  transitioning: boolean;
 
   /** Synchronously resolve + connect; returns the operations surface (or null). */
   boot(): LatticeApi | null;
@@ -60,6 +63,7 @@ export const useRuntime = create<RuntimeStore>((set, get) => {
 
   return {
     ...snapshot(),
+    transitioning: false,
 
     boot() {
       migrateLegacyRuntimeConfig();
@@ -89,9 +93,26 @@ export const useRuntime = create<RuntimeStore>((set, get) => {
     },
 
     async connect(profile) {
-      manager.connect(profile, null);
-      sync();
-      await get().refreshCapabilities();
+      set({ transitioning: true });
+      try {
+        manager.connect(profile, null);
+        sync();
+        // Installed: discover + select the binary (drives the Rust-side spawn
+        // / restart). Bundled: clear any override back to the packaged binary.
+        if (profile.provider.type === "installed") {
+          if (profile.provider.executable && profile.provider.executable !== "auto") {
+            await setInstalledExecutable(profile.provider.executable);
+          } else {
+            const found = await discoverInstalledPi();
+            await setInstalledExecutable(found ? found.executablePath : null);
+          }
+        } else if (profile.provider.type === "bundled") {
+          await setInstalledExecutable(null);
+        }
+        await get().refreshCapabilities();
+      } finally {
+        set({ transitioning: false });
+      }
     },
 
     async disconnect() {
@@ -101,9 +122,19 @@ export const useRuntime = create<RuntimeStore>((set, get) => {
 
     async selectProfile(id) {
       setActiveProfileId(id);
-      const profile = loadProfiles().find((p) => p.id === id);
-      if (!profile) return;
-      await get().connect(profile);
+      const target = loadProfiles().find((p) => p.id === id);
+      if (!target) return;
+      const current = manager.getProfile();
+      const transportChanged =
+        (current?.provider.type === "remote") !== (target.provider.type === "remote");
+      if (transportChanged) {
+        // Switching the transport (local ⇄ remote) requires re-booting the whole
+        // operations surface; the boot screen now animates so it is not a blank
+        // flash.
+        window.location.reload();
+        return;
+      }
+      await get().connect(target);
     },
 
     async refreshCapabilities() {

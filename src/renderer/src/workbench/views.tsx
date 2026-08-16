@@ -34,12 +34,17 @@ export function ConversationView() {
   );
 }
 
-export function TerminalView() {
-  useEffect(() => {
-    workbenchCommands.updateViewTitle("view-terminal", "Terminal");
-  }, []);
+export function TerminalView({ componentId }: { componentId?: string }) {
+  const terminalId = componentId?.startsWith("terminal:")
+    ? componentId.slice("terminal:".length)
+    : undefined;
 
-  return <TerminalPanel />;
+  useEffect(() => {
+    const tabId = terminalId ? `view-terminal-${terminalId}` : "view-terminal";
+    workbenchCommands.updateViewTitle(tabId, "Terminal");
+  }, [terminalId]);
+
+  return <TerminalPanel terminalId={terminalId} />;
 }
 
 export function GitView() {
@@ -57,7 +62,6 @@ registerWorkbenchView({
   type: "terminal",
   title: "Terminal",
   component: TerminalView,
-  singleton: true,
 });
 registerWorkbenchView({
   type: "git",

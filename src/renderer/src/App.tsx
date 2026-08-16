@@ -7,6 +7,7 @@ import { PermissionDialog } from "./components/PermissionDialog";
 import { SettingsView } from "./views/SettingsView";
 import { ExtensionsView } from "./views/ExtensionsView";
 import { DockWorkbench } from "./workbench/DockWorkbench";
+import { RuntimeLoadingOverlay } from "./runtime/RuntimeLoadingOverlay";
 import "./workbench/views";
 import "./styles/app.css";
 
@@ -61,7 +62,13 @@ export default function App() {
   }, []);
 
   if (!ready) {
-    return <div className="boot">Lattice</div>;
+    return (
+      <div className="boot">
+        <div className="boot-mark">Λ</div>
+        <span className="spinner" />
+        <div className="boot-text">Loading Lattice…</div>
+      </div>
+    );
   }
 
   return (
@@ -83,6 +90,7 @@ export default function App() {
         </main>
       </div>
       <PermissionDialog />
+      <RuntimeLoadingOverlay />
     </div>
   );
 }

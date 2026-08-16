@@ -9,6 +9,7 @@ import {
   setActiveProfileId,
   subscribeProfiles,
 } from "./profiles-store";
+import { testStatus } from "./test";
 import type { RuntimeConnectionState } from "./types";
 
 const STATE_COLORS: Record<RuntimeConnectionState, string> = {
@@ -55,6 +56,14 @@ export function RuntimeIndicator() {
     void selectProfile(id);
   };
 
+  const dotColorFor = (id: string): string => {
+    if (id === activeId) return state === "connected" ? "var(--success)" : STATE_COLORS[state];
+    const status = testStatus(id);
+    if (status === "ok") return "var(--success)";
+    if (status === "fail") return "var(--danger)";
+    return "var(--text-faint)";
+  };
+
   const name = info?.name ?? "No runtime";
 
   return (
@@ -78,7 +87,7 @@ export function RuntimeIndicator() {
                 className="popover-item"
                 onClick={() => switchTo(p.id)}
               >
-                <span className="status-dot" style={{ background: activeId === p.id ? "var(--success)" : "var(--text-faint)" }} />
+                <span className="status-dot" style={{ background: dotColorFor(p.id) }} />
                 <span style={{ flex: 1, textAlign: "left" }}>{p.name}</span>
                 <span className="sub">
                   {p.provider.type === "remote" ? "Remote" : p.provider.type === "installed" ? "Installed" : "Built-in"}

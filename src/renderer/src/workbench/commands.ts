@@ -60,6 +60,34 @@ export const workbenchCommands = {
     );
   },
 
+  /**
+   * Open a specific terminal (one PTY per tab) docked to the RIGHT of the
+   * active tabset, so terminals stack side-by-side on the right. Free drag
+   * still works afterwards for arbitrary row/column arrangement.
+   */
+  openTerminal(terminalId: string): void {
+    if (!boundModel) return;
+    const component = `terminal:${terminalId}`;
+    const nodeId = `view-terminal-${terminalId}`;
+    const existing = findTabByComponent(boundModel, component);
+    if (existing) {
+      selectTab(boundModel, existing);
+      return;
+    }
+    const tabset = boundModel.getActiveTabset();
+    const targetId = tabset?.getId() ?? boundModel.getRootRow()?.getId();
+    if (!targetId) return;
+    boundModel.doAction(
+      Actions.addNode(
+        { type: "tab", id: nodeId, name: "Terminal", component, enableClose: true },
+        targetId,
+        DockLocation.RIGHT,
+        -1,
+        true,
+      ),
+    );
+  },
+
   resetLayout(): void {
     localStorage.removeItem(LAYOUT_STORAGE_KEY);
     window.location.reload();

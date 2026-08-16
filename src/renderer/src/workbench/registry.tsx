@@ -8,7 +8,7 @@ import type { WorkbenchViewType } from "./types";
 export interface WorkbenchViewDescriptor {
   type: WorkbenchViewType;
   title: string;
-  component: ComponentType;
+  component: ComponentType<{ componentId?: string }>;
   /** Only one instance allowed in the layout. */
   singleton?: boolean;
   closable?: boolean;

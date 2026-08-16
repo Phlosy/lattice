@@ -12,6 +12,13 @@ import {
 } from "../runtime/profiles-store";
 import type { RuntimeProfile } from "../runtime/types";
 import { RuntimeDiagnostics } from "../runtime/RuntimeDiagnostics";
+import { useRuntime } from "../runtime/store";
+import {
+  loadTestResults,
+  saveTestResult,
+  testProfile,
+  type RuntimeTestStatus,
+} from "../runtime/test";
 import { workbenchCommands } from "../workbench/commands";
 
 type Section = "appearance" | "model" | "agent" | "runtime" | "about";
@@ -205,6 +212,14 @@ function RuntimeSection() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [token, setToken] = useState("");
+  const [tests, setTests] = useState<Record<string, RuntimeTestStatus>>(() => {
+    const results = loadTestResults();
+    const map: Record<string, RuntimeTestStatus> = {};
+    for (const [id, r] of Object.entries(results)) map[id] = r.ok ? "ok" : "fail";
+    return map;
+  });
+  const [testing, setTesting] = useState<Set<string>>(new Set());
+  const [testError, setTestError] = useState<string | null>(null);
 
   useEffect(
     () =>
@@ -217,7 +232,26 @@ function RuntimeSection() {
 
   const activate = (id: string) => {
     setActiveProfileId(id);
-    window.location.reload();
+    void useRuntime.getState().selectProfile(id);
+  };
+
+  const runTest = async (profile: RuntimeProfile) => {
+    setTesting((prev) => new Set(prev).add(profile.id));
+    setTestError(null);
+    const result = await testProfile(profile);
+    saveTestResult(profile.id, result);
+    setTests((prev) => ({ ...prev, [profile.id]: result.ok ? "ok" : "fail" }));
+    setTesting((prev) => {
+      const next = new Set(prev);
+      next.delete(profile.id);
+      return next;
+    });
+    if (!result.ok) setTestError(result.error ?? "connection failed");
+  };
+
+  const testPendingRemote = async () => {
+    if (!url.trim()) return;
+    await runTest({ id: "pending", name: name.trim() || url, provider: { type: "remote", url: url.trim(), token: token.trim() || undefined } });
   };
 
   const addRemote = () => {
@@ -230,6 +264,7 @@ function RuntimeSection() {
     setName("");
     setUrl("");
     setToken("");
+    setTestError(null);
   };
 
   return (
@@ -239,9 +274,11 @@ function RuntimeSection() {
         {profiles.map((p) => {
           const kind =
             p.provider.type === "remote" ? t("settings.runtimeRemote") : t("settings.runtimeLocal");
+          const status = testing.has(p.id) ? "testing" : (tests[p.id] ?? "untested");
           return (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
-              <label className="checkbox-label" style={{ flex: 1, cursor: "pointer" }}>
+              <TestDot status={status} />
+              <label className="checkbox-label" style={{ flex: 1, cursor: "pointer", margin: 0 }}>
                 <input
                   type="radio"
                   name="runtime-profile"
@@ -256,6 +293,9 @@ function RuntimeSection() {
                   </span>
                 )}
               </label>
+              <button className="btn btn-sm" onClick={() => void runTest(p)} disabled={testing.has(p.id)}>
+                {t("settings.runtimeTest")}
+              </button>
               {p.provider.type === "remote" && (
                 <button
                   className="icon-btn"
@@ -280,9 +320,13 @@ function RuntimeSection() {
           placeholder={t("settings.runtimeToken")}
           onChange={(e) => setToken(e.target.value)}
         />
+        {testError && <span className="hint" style={{ color: "var(--danger)" }}>{testError}</span>}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
           <button className="btn btn-sm" disabled={!name.trim() || !url.trim()} onClick={addRemote}>
             {t("settings.save")}
+          </button>
+          <button className="btn btn-sm" disabled={!url.trim()} onClick={() => void testPendingRemote()}>
+            {t("settings.runtimeTest")}
           </button>
         </div>
       </div>
@@ -290,5 +334,17 @@ function RuntimeSection() {
       <RuntimeDiagnostics />
     </SectionCard>
   );
+}
+
+function TestDot({ status }: { status: RuntimeTestStatus }) {
+  const color =
+    status === "ok"
+      ? "var(--success)"
+      : status === "fail"
+        ? "var(--danger)"
+        : status === "testing"
+          ? "var(--warning)"
+          : "var(--text-faint)";
+  return <span className="status-dot" style={{ background: color, flexShrink: 0 }} />;
 }
 

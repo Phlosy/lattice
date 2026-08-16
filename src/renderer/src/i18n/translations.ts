@@ -99,6 +99,7 @@ const en = {
   // Terminal
   "term.noTerminal": "No terminal. Open one from the top bar.",
   "term.panel": "Terminal",
+  "term.close": "Close terminal",
 
   // Settings
   "settings.title": "Settings",
@@ -250,6 +251,7 @@ const zh: Record<keyof typeof en, string> = {
 
   "term.noTerminal": "暂无终端。从顶部栏打开一个。",
   "term.panel": "终端",
+  "term.close": "关闭终端",
 
   "settings.title": "设置",
   "settings.appearance": "外观",

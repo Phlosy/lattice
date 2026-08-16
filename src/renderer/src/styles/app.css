@@ -1362,10 +1362,10 @@ kbd {
   background: transparent;
 }
 .flexlayout__splitter_horz {
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--panel-divider);
 }
 .flexlayout__splitter_vert {
-  border-left: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--panel-divider);
 }
 
 /* ---- Dock engine (FlexLayout) theming ------------------------------------
@@ -1416,6 +1416,22 @@ kbd {
 .term-close:hover {
   background: var(--surface-4);
   color: var(--text-primary);
+}
+.terminal-single-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  font-size: var(--fs-11);
+  color: var(--text-muted);
+}
+.terminal-single-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .terminal-host {
   flex: 1;
@@ -2208,12 +2224,74 @@ kbd {
 /* ---- Window boot ------------------------------------------------------------- */
 .boot {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--sp-3);
   height: 100vh;
-  font-size: var(--fs-14);
+  width: 100vw;
+  background: var(--bg);
   color: var(--text-muted);
   letter-spacing: 0.06em;
+  animation: boot-in var(--dur-slow) var(--ease);
+}
+.boot-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-20);
+  font-weight: var(--fw-semibold);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.boot-text {
+  font-size: var(--fs-12);
+  color: var(--text-faint);
+}
+@keyframes boot-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Runtime switch loading overlay (floating modal, never a blank screen). */
+.runtime-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.32);
+  animation: fade-in var(--dur-fast) var(--ease);
+}
+.runtime-loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-pop);
+  animation: modal-in var(--dur-med) var(--ease);
+}
+.runtime-loading-title {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+.runtime-loading-sub {
+  font-size: var(--fs-12);
+  color: var(--text-muted);
 }
 
 /* ============================================================================
