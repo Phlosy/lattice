@@ -3,7 +3,6 @@ import { useApp } from "./store/useApp";
 import { useLayoutClass } from "./lib/layout";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
-import { SessionTabs } from "./components/SessionTabs";
 import { PermissionDialog } from "./components/PermissionDialog";
 import { SettingsView } from "./views/SettingsView";
 import { ExtensionsView } from "./views/ExtensionsView";
@@ -73,7 +72,6 @@ export default function App() {
         <main className="workspace">
           {view === "chat" && (
             <>
-              <SessionTabs />
               <TopBar onMenu={() => setSidebarOpen(true)} />
               <div className="dock-container">
                 <DockWorkbench />

@@ -539,16 +539,21 @@ pub fn pi_set_cwd(
     shared: State<Arc<PiShared>>,
     cwd: String,
 ) -> Result<bool, String> {
-    let path = PathBuf::from(&cwd);
-    if !path.is_dir() {
-        return Err(format!("Not a directory: {cwd}"));
+    // Empty cwd resets to the home directory (standalone conversations).
+    let resolved = if cwd.trim().is_empty() {
+        crate::paths::home_dir()
+    } else {
+        PathBuf::from(cwd.trim())
+    };
+    if !resolved.is_dir() {
+        return Err(format!("Not a directory: {}", resolved.display()));
     }
     let changed = {
         let mut current = shared.cwd.lock().map_err(|e| e.to_string())?;
-        if current.as_ref() == Some(&path) {
+        if current.as_ref() == Some(&resolved) {
             false
         } else {
-            *current = Some(path);
+            *current = Some(resolved);
             true
         }
     };

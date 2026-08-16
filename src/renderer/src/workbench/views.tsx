@@ -13,17 +13,16 @@ import { GitPanel } from "../components/GitPanel";
 import { registerWorkbenchView } from "./registry";
 import { workbenchCommands } from "./commands";
 
-function basename(path: string): string {
-  return path.split("/").filter(Boolean).pop() ?? path;
-}
-
 export function ConversationView() {
   const currentProject = useApp((s) => s.currentProject);
-  const sessionName = useApp((s) => s.sessionState?.name);
+  const title = useApp((s) => {
+    const c = s.conversations.find((c) => c.id === s.activeSessionId);
+    return c?.title || s.sessionState?.name;
+  });
 
   useEffect(() => {
-    workbenchCommands.updateViewTitle("view-conversation", sessionName || "新建会话");
-  }, [sessionName]);
+    workbenchCommands.updateViewTitle("view-conversation", title || "Conversation");
+  }, [title]);
 
   return (
     <div className="conversation-view">
@@ -36,13 +35,9 @@ export function ConversationView() {
 }
 
 export function TerminalView() {
-  const terminals = useApp((s) => s.terminals);
-  const last = terminals[terminals.length - 1];
-  const title = last?.cwd ? `terminal · ${basename(last.cwd)}` : "Terminal";
-
   useEffect(() => {
-    workbenchCommands.updateViewTitle("view-terminal", title);
-  }, [title]);
+    workbenchCommands.updateViewTitle("view-terminal", "Terminal");
+  }, []);
 
   return <TerminalPanel />;
 }

@@ -81,6 +81,12 @@
   --flexlayout-color-mini-scroll-indicator: var(--text-faint);
   --flexlayout-color-mini-scroll-indicator-hovered: var(--text-muted);
   --flexlayout-color-float-window-header-background: var(--surface-1);
+  /* Compact IDE-style tabs: 12px text, regular weight, thin splitters. */
+  --flexlayout-font-size: 12px;
+  --flexlayout-font-weight: 400;
+  --flexlayout-font-family: var(--font-sans);
+  --flexlayout-splitter-size: 5px;
+  --flexlayout-splitter-active-size: 5px;
 
   /* ---- Borders ------------------------------------------------------------ */
   --border: #26262e;

@@ -130,6 +130,7 @@ export function createLatticeTauri(): LatticeApi {
     },
     createSession: async (opts) =>
       rememberSession(await invoke("create_session", { name: opts.name ?? null })) as never,
+    setWorkspaceCwd: (cwd) => invoke("pi_set_cwd", { cwd }).then(() => true),
     openSession: async (opts) =>
       rememberSession(await invoke("open_session", { file: opts.file })) as never,
     renameSession: async (sessionId, name) => {

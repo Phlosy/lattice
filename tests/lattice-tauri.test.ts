@@ -34,7 +34,7 @@ describe("createLatticeTauri", () => {
     const api = createLatticeTauri();
     const methods = [
       "appInfo", "openProject", "getProjects", "removeProject", "getSessions",
-      "createSession", "openSession", "renameSession", "deleteSession",
+      "createSession", "setWorkspaceCwd", "openSession", "renameSession", "deleteSession",
       "getSessionState", "getSessionMessages", "prompt", "listFiles", "steer",
       "followUp", "abort", "continueSession", "getProviders", "getModels",
       "setModel", "setThinkingLevel", "login", "respondPermission",

@@ -1,9 +1,13 @@
 // Zustand store — the single source of renderer state, fed by the preload IPC
-// surface and reduced via the pure transcript reducer.
+// surface and reduced via the pure transcript reducer. Conversations are the
+// UI's view model over Pi's raw session metas + Lattice's conversation meta
+// (project association, archived flag, last-opened time).
 
 import { create } from "zustand";
 import type {
   AgentMessage,
+  Conversation,
+  ConversationMeta,
   GitStatus,
   ModelInfo,
   PermissionRequest,
@@ -19,6 +23,13 @@ import {
   reduceTranscript,
   type TranscriptState,
 } from "../lib/session-reducer";
+import {
+  autoTitle,
+  deriveConversations,
+  loadConversationMeta,
+  saveConversationMeta,
+  sortConversations,
+} from "../lib/conversations";
 import { appendTerminalData, clearTerminalBuffer } from "../lib/terminal-buffer";
 import { normalizeModel } from "../lib/model";
 import { workbenchCommands } from "../workbench/commands";
@@ -51,6 +62,9 @@ interface AppStore {
   projects: ProjectInfo[];
   currentProject: ProjectInfo | null;
   sessions: SessionMeta[];
+  conversations: Conversation[];
+  conversationMeta: Record<string, ConversationMeta>;
+  showArchived: boolean;
   activeSessionId: string | null;
   openSessionIds: string[];
   sessionState: SessionState | null;
@@ -67,13 +81,18 @@ interface AppStore {
   setView: (v: View) => void;
   openProject: (path?: string) => Promise<void>;
   removeProject: (path: string) => Promise<void>;
-  refreshSessions: () => Promise<void>;
-  createSession: (name?: string) => Promise<void>;
+  refreshConversations: () => Promise<void>;
+  createSession: (name?: string, opts?: { projectId?: string | null }) => Promise<void>;
+  createStandaloneSession: () => Promise<void>;
   openSession: (file: string) => Promise<void>;
   setActiveSession: (sessionId: string) => Promise<void>;
   closeSessionTab: (sessionId: string) => Promise<void>;
   renameSession: (sessionId: string, name: string) => Promise<void>;
   deleteSession: (file: string) => Promise<void>;
+  archiveConversation: (sessionId: string) => Promise<void>;
+  unarchiveConversation: (sessionId: string) => Promise<void>;
+  moveConversation: (sessionId: string, projectId: string | null) => Promise<void>;
+  setShowArchived: (show: boolean) => void;
 
   prompt: (text: string, images?: Array<{ type: "image"; data: string; mimeType: string }>) => Promise<void>;
   steer: (text: string) => Promise<void>;
@@ -102,12 +121,42 @@ interface AppStore {
 const api = () => window.lattice;
 let subscriptionsWired = false;
 
+/** Re-derive the UI conversation list from raw sessions + meta + projects. */
+function syncConversations(
+  get: () => AppStore,
+  set: (p: Partial<AppStore>) => void,
+): void {
+  set({
+    conversations: sortConversations(
+      deriveConversations(get().sessions, get().projects, get().conversationMeta),
+    ),
+  });
+}
+
+function patchConversationMeta(
+  get: () => AppStore,
+  set: (p: Partial<AppStore>) => void,
+  sessionId: string,
+  patch: ConversationMeta,
+): void {
+  const meta = {
+    ...get().conversationMeta,
+    [sessionId]: { ...get().conversationMeta[sessionId], ...patch },
+  };
+  saveConversationMeta(meta);
+  set({ conversationMeta: meta });
+  syncConversations(get, set);
+}
+
 export const useApp = create<AppStore>((set, get) => ({
   ready: false,
   view: "chat",
   projects: [],
   currentProject: null,
   sessions: [],
+  conversations: [],
+  conversationMeta: {},
+  showArchived: false,
   activeSessionId: null,
   openSessionIds: [],
   sessionState: null,
@@ -133,38 +182,38 @@ export const useApp = create<AppStore>((set, get) => ({
     if (!subscriptionsWired) {
       subscriptionsWired = true;
       api().onSessionEvent(({ sessionId, event }) => {
-      const s = get();
-      if (sessionId !== s.activeSessionId) return;
-      const next = reduceTranscript(s.transcript, event);
-      set({ transcript: next });
-      // Refresh git status when the agent settles, so file changes surface
-      // in the conversation (Codex-style diff integration).
-      if (event.type === "agent_settled" && s.currentProject) {
-        void Promise.all([s.refreshGit(), s.refreshSessions()]);
-      }
-    });
+        const s = get();
+        if (sessionId !== s.activeSessionId) return;
+        const next = reduceTranscript(s.transcript, event);
+        set({ transcript: next });
+        // Refresh git status when the agent settles, so file changes surface
+        // in the conversation (Codex-style diff integration).
+        if (event.type === "agent_settled" && s.currentProject) {
+          void Promise.all([s.refreshGit(), s.refreshConversations()]);
+        }
+      });
 
-    api().onSessionState((state) => {
-      const s = get();
-      const st = state as unknown as SessionState;
-      if (st.sessionId !== s.activeSessionId) return;
-      set({ sessionState: st });
-    });
+      api().onSessionState((state) => {
+        const s = get();
+        const st = state as unknown as SessionState;
+        if (st.sessionId !== s.activeSessionId) return;
+        set({ sessionState: st });
+      });
 
-    api().onSessionCreated(() => {
-      const s = get();
-      if (s.currentProject) s.refreshSessions();
-    });
+      api().onSessionCreated(() => {
+        const s = get();
+        void s.refreshConversations();
+      });
 
-    api().onPermissionRequest((payload) => {
-      const p = payload as unknown as PermissionItem;
-      set({ permissions: [...get().permissions, p] });
-    });
+      api().onPermissionRequest((payload) => {
+        const p = payload as unknown as PermissionItem;
+        set({ permissions: [...get().permissions, p] });
+      });
 
-    api().onTerminalData(({ id, data }) => {
-      appendTerminalData(id, data);
-      window.dispatchEvent(new CustomEvent("lattice-term-data", { detail: { id, data } }));
-    });
+      api().onTerminalData(({ id, data }) => {
+        appendTerminalData(id, data);
+        window.dispatchEvent(new CustomEvent("lattice-term-data", { detail: { id, data } }));
+      });
 
       api().onTerminalExit(({ id }) => {
         clearTerminalBuffer(id);
@@ -173,13 +222,14 @@ export const useApp = create<AppStore>((set, get) => ({
 
       api().onModelsChanged(() => void get().loadModels());
       api().onGitChanged(() => void get().refreshGit());
-      api().onSessionDeleted(() => void get().refreshSessions());
+      api().onSessionDeleted(() => void get().refreshConversations());
     }
 
     const [projects, loadedSettings] = await Promise.all([api().getProjects(), api().getSettings()]);
     const settings = { ...get().settings, ...loadedSettings };
-    set({ projects, settings, ready: true });
+    set({ projects, settings, conversationMeta: loadConversationMeta(), ready: true });
     applyAppearance(settings);
+    void get().refreshConversations();
   },
 
   setView: (v) => set({ view: v }),
@@ -204,57 +254,47 @@ export const useApp = create<AppStore>((set, get) => ({
       terminals: [],
       gitStatus: null,
     });
-    await get().refreshSessions();
+    await get().refreshConversations();
     await get().refreshGit();
   },
 
   removeProject: async (path) => {
     await api().removeProject(path);
     set({ projects: get().projects.filter((p) => p.path !== path) });
+    syncConversations(get, set);
   },
 
-  refreshSessions: async () => {
-    const { currentProject } = get();
-    if (!currentProject) return;
-    const diskSessions = await api().getSessions(currentProject.path);
-    if (get().currentProject?.path !== currentProject.path) return;
-    const ephemeral = get().sessions.filter(
-      (session) =>
-        get().openSessionIds.includes(session.id) &&
-        !diskSessions.some((saved) => saved.id === session.id),
-    );
-    set({ sessions: [...diskSessions, ...ephemeral] });
+  refreshConversations: async () => {
+    const sessions = (await api().getSessions("")) as SessionMeta[];
+    set({ sessions });
+    syncConversations(get, set);
   },
 
-  createSession: async (name) => {
-    const { currentProject } = get();
-    if (!currentProject || get().transcript.running) return;
+  createSession: async (name, opts) => {
+    if (get().transcript.running) return;
+    const currentProject = get().currentProject;
+    const targetPath =
+      opts?.projectId !== undefined ? opts.projectId : (currentProject?.path ?? null);
     return enqueueSessionNavigation(async (generation) => {
+      // Desktop scopes new sessions by the sidecar working directory; remote
+      // providers scope by the cwd argument instead.
+      const setCwd = api().setWorkspaceCwd;
+      if (setCwd) {
+        await setCwd(targetPath ?? "");
+      }
       const result = (await api().createSession({
-        projectId: currentProject.id,
-        cwd: currentProject.path,
+        projectId: targetPath ?? "",
+        cwd: targetPath ?? "",
         name,
       })) as { sessionId: string; cwd: string; file?: string; state: SessionState };
-      await get().refreshSessions();
-      if (
-        generation !== sessionNavigationGeneration ||
-        get().currentProject?.path !== currentProject.path
-      ) return;
-      const now = Date.now();
-      const optimistic: SessionMeta = {
-        id: result.sessionId,
-        name: result.state.name ?? name,
-        projectId: currentProject.id,
-        cwd: result.cwd || currentProject.path,
-        file: result.file ?? result.state.file,
-        createdAt: now,
-        updatedAt: now,
-        messageCount: result.state.messageCount,
-      };
+      patchConversationMeta(get, set, result.sessionId, {
+        projectId: targetPath,
+        archived: false,
+        lastOpenedAt: Date.now(),
+      });
+      await get().refreshConversations();
+      if (generation !== sessionNavigationGeneration) return;
       set({
-        sessions: get().sessions.some((session) => session.id === result.sessionId)
-          ? get().sessions
-          : [optimistic, ...get().sessions],
         activeSessionId: result.sessionId,
         sessionState: result.state,
         transcript: { ...initialTranscript },
@@ -263,9 +303,13 @@ export const useApp = create<AppStore>((set, get) => ({
     });
   },
 
+  createStandaloneSession: async () => {
+    await get().createSession(undefined, { projectId: null });
+  },
+
   openSession: async (file) => {
-    const { currentProject } = get();
-    const target = get().sessions.find((session) => session.file === file);
+    const currentProject = get().currentProject;
+    const target = get().conversations.find((c) => c.file === file);
     if (
       !currentProject ||
       (get().transcript.running && target?.id !== get().activeSessionId)
@@ -278,10 +322,8 @@ export const useApp = create<AppStore>((set, get) => ({
       })) as { sessionId: string; state: SessionState };
       if (generation !== sessionNavigationGeneration) return;
       const messages = await api().getSessionMessages(result.sessionId);
-      if (
-        generation !== sessionNavigationGeneration ||
-        get().currentProject?.path !== currentProject.path
-      ) return;
+      if (generation !== sessionNavigationGeneration) return;
+      patchConversationMeta(get, set, result.sessionId, { lastOpenedAt: Date.now() });
       set({
         activeSessionId: result.sessionId,
         sessionState: result.state,
@@ -297,9 +339,8 @@ export const useApp = create<AppStore>((set, get) => ({
 
   setActiveSession: async (sessionId) => {
     if (get().transcript.running && sessionId !== get().activeSessionId) return;
-    const currentProject = get().currentProject;
-    const meta = get().sessions.find((session) => session.id === sessionId);
-    if (currentProject && meta?.file && get().activeSessionId !== sessionId) {
+    const meta = get().conversations.find((c) => c.id === sessionId);
+    if (meta?.file && get().activeSessionId !== sessionId) {
       await get().openSession(meta.file);
       return;
     }
@@ -307,6 +348,7 @@ export const useApp = create<AppStore>((set, get) => ({
       api().getSessionState(sessionId),
       api().getSessionMessages(sessionId),
     ]);
+    patchConversationMeta(get, set, sessionId, { lastOpenedAt: Date.now() });
     set({
       activeSessionId: sessionId,
       sessionState: state as SessionState,
@@ -323,7 +365,6 @@ export const useApp = create<AppStore>((set, get) => ({
     const s = get();
     if (s.transcript.running && s.activeSessionId === sessionId) return;
     const remaining = s.openSessionIds.filter((id) => id !== sessionId);
-    // If closing the active tab, switch to the last remaining one.
     if (s.activeSessionId === sessionId) {
       const next = remaining[remaining.length - 1];
       set({ openSessionIds: remaining });
@@ -348,34 +389,54 @@ export const useApp = create<AppStore>((set, get) => ({
           ? { ...get().sessionState!, name }
           : get().sessionState,
     });
-    await get().refreshSessions();
+    syncConversations(get, set);
+    await get().refreshConversations();
   },
 
   deleteSession: async (file) => {
-    const deleted = get().sessions.find((session) => session.file === file);
+    const deleted = get().conversations.find((c) => c.file === file);
     await api().deleteSession(file);
+    const meta = { ...get().conversationMeta };
+    if (deleted) delete meta[deleted.id];
+    saveConversationMeta(meta);
     const openSessionIds = deleted
       ? get().openSessionIds.filter((id) => id !== deleted.id)
       : get().openSessionIds;
     set({
-      sessions: get().sessions.filter((session) => session.file !== file),
+      conversationMeta: meta,
+      sessions: get().sessions.filter((s) => s.file !== file),
       openSessionIds,
     });
+    syncConversations(get, set);
     if (deleted?.id === get().activeSessionId) {
       const next = openSessionIds[openSessionIds.length - 1];
       set({ activeSessionId: null, sessionState: null, transcript: { ...initialTranscript } });
       if (next) await get().setActiveSession(next);
     }
-    await get().refreshSessions();
+    await get().refreshConversations();
   },
+
+  archiveConversation: async (sessionId) => {
+    patchConversationMeta(get, set, sessionId, { archived: true });
+  },
+
+  unarchiveConversation: async (sessionId) => {
+    patchConversationMeta(get, set, sessionId, { archived: false });
+  },
+
+  moveConversation: async (sessionId, projectId) => {
+    patchConversationMeta(get, set, sessionId, { projectId });
+  },
+
+  setShowArchived: (show) => set({ showArchived: show }),
 
   prompt: async (text, images) => {
     const id = get().activeSessionId;
     if (!id) return;
-    // Auto-name: derive a tab title from the first prompt if unnamed.
+    // Auto-title: derive a short title from the first prompt if unnamed.
     const st = get().sessionState;
     if (st?.sessionId === id && !st.name) {
-      void get().renameSession(id, autoName(text));
+      void get().renameSession(id, autoTitle(text));
     }
     await api().prompt(id, text, images);
   },
@@ -491,11 +552,4 @@ function applyAppearance(settings: AppSettings): void {
   // CSS zoom scales the whole UI; Chromium-only (Electron), non-standard but
   // a pragmatic way to honor the user's font-size preference globally.
   document.body.style.zoom = String(settings.fontSize / 13);
-}
-
-/** Derive a short session title from the first user prompt (Codex-style). */
-function autoName(text: string): string {
-  const cleaned = text.trim().replace(/\s+/g, " ");
-  const words = cleaned.split(" ").slice(0, 6).join(" ");
-  return words.length > 40 ? words.slice(0, 40).trimEnd() + "…" : words;
 }

@@ -32,10 +32,14 @@ export function TopBar({ onMenu }: { onMenu?: () => void }) {
         {currentProject && (
           <>
             <span className="project">{currentProject.name}</span>
-            <span className="sep">/</span>
+            {gitStatus && (
+              <>
+                <span className="sep">/</span>
+                <span className="branch">{gitStatus.branch}</span>
+              </>
+            )}
           </>
         )}
-        <span className="session">{sessionState?.name || t("topbar.newSession")}</span>
       </div>
 
       <div className="topbar-controls">

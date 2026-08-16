@@ -160,6 +160,34 @@ export interface SessionMeta {
   messageCount: number;
 }
 
+/**
+ * A conversation as the UI presents it. `id`/`agentSessionId` are the Pi
+ * session id; `projectId` is the owning filesystem workspace (a project path)
+ * or `null` for a standalone chat. Pi owns the underlying JSONL agent session;
+ * Lattice owns the association + archived flag via ConversationMeta.
+ */
+export interface Conversation {
+  id: string;
+  title: string;
+  projectId: string | null;
+  agentSessionId: string;
+  runtimeId?: string;
+  file?: string;
+  cwd: string;
+  createdAt: number;
+  updatedAt: number;
+  lastOpenedAt: number;
+  messageCount: number;
+  archived: boolean;
+}
+
+/** Lattice-side UI metadata keyed by Pi session id (persisted to localStorage). */
+export interface ConversationMeta {
+  projectId?: string | null;
+  archived?: boolean;
+  lastOpenedAt?: number;
+}
+
 export interface ModelInfo {
   id: string;
   name: string;

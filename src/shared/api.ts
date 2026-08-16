@@ -34,6 +34,10 @@ export interface LatticeApi {
     file?: string;
     state: SessionState;
   }>;
+  /** Point the Pi sidecar's working directory at a workspace (desktop only;
+   *  empty cwd resets to home for standalone chats). Remote providers scope
+   *  by the cwd argument instead. */
+  setWorkspaceCwd?(cwd: string): Promise<boolean>;
   openSession(opts: { projectId: string; cwd: string; file: string }): Promise<{
     sessionId: string;
     cwd: string;

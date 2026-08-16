@@ -269,18 +269,80 @@ body[data-platform="darwin"] .sidebar-header {
   font-weight: var(--fw-semibold);
 }
 
-.sidebar-section {
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: var(--sp-2);
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--text-faint);
+  border-radius: 2px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+.sidebar-empty {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-11);
+  color: var(--text-faint);
+}
+.project-group {
+  margin-bottom: var(--sp-1);
+}
+.chevron-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.chevron-btn:hover {
+  color: var(--text-primary);
+}
+.archived-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: calc(100% - var(--sp-4));
+  margin: var(--sp-2) var(--sp-2) 0;
+  padding: 6px var(--sp-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--fs-11);
+  cursor: pointer;
+  text-align: left;
+}
+.archived-toggle:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+.archived-count {
+  margin-left: auto;
+  font-size: var(--fs-10);
+  color: var(--text-faint);
+}
+.sidebar-collapsed-icons {
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  /* Recent projects scroll instead of pushing the session list + footer off. */
-  max-height: 42%;
-  overflow-y: auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
 }
-.sidebar-section.grow {
-  flex: 1;
-  max-height: none;
-  overflow: hidden;
+.sidebar-collapsed-icons .icon-btn.active {
+  color: var(--accent);
 }
 
 .sidebar-section-title {
@@ -388,6 +450,7 @@ body[data-platform="darwin"] .sidebar-header {
   gap: var(--sp-2);
   padding: var(--sp-3) var(--sp-4);
   border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 .runtime-indicator {
   display: inline-flex;
@@ -606,6 +669,13 @@ body[data-platform="darwin"] .sidebar-header {
   color: var(--text-faint);
 }
 .topbar-context .session {
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar-context .branch {
   font-weight: var(--fw-medium);
   color: var(--text-primary);
   overflow: hidden;
@@ -1270,6 +1340,32 @@ kbd {
   flex-direction: column;
   height: 100%;
   min-height: 0;
+}
+
+/* Compact IDE-style tab bars + thin splitters (1px line, wider hit area). */
+.flexlayout__tabset_tabbar_outer_top {
+  min-height: 30px;
+  height: 30px;
+}
+.flexlayout__tab_button {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.flexlayout__tab_button--selected {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.flexlayout__splitter {
+  background: transparent;
+}
+.flexlayout__splitter_horz {
+  border-top: 1px solid var(--border-subtle);
+}
+.flexlayout__splitter_vert {
+  border-left: 1px solid var(--border-subtle);
 }
 
 /* ---- Dock engine (FlexLayout) theming ------------------------------------
