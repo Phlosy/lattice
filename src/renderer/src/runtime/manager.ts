@@ -118,6 +118,14 @@ export class RuntimeManager {
     return () => this.listeners.delete(listener);
   }
 
+  /** Replace the effective capabilities after async negotiation. */
+  updateCapabilities(caps: RuntimeCapabilities): void {
+    if (this.runtime) {
+      this.runtime.capabilities = caps;
+      this.notify();
+    }
+  }
+
   /** Resolve + connect, applying the fallback order (explicit → installed → bundled). */
   connect(explicit: RuntimeProfile | undefined, discovery: DiscoveryResult | null): ResolvedRuntime {
     const profile = resolveProfile(explicit, discovery);
@@ -133,8 +141,12 @@ export class RuntimeManager {
     this.setState("disconnected");
   }
 
+  private notify(): void {
+    for (const listener of this.listeners) listener(this.state);
+  }
+
   private setState(next: RuntimeConnectionState): void {
     this.state = next;
-    for (const listener of this.listeners) listener(next);
+    this.notify();
   }
 }

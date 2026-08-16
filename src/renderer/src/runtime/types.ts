@@ -59,6 +59,8 @@ export interface RuntimeInfo {
   provider: RuntimeProviderKind;
   location: RuntimeLocation;
   executablePath?: string;
+  /** Client platform — decides whether a local Pi can be spawned. */
+  platform?: "desktop" | "mobile" | "browser";
 }
 
 export interface RuntimeCapabilities {

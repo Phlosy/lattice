@@ -1,29 +1,96 @@
-// Compact runtime indicator — shows the active runtime profile and jumps to
-// Runtime settings when clicked. Kept deliberately light (IDE status-bar style).
+// RuntimeIndicator + QuickSwitcher — the lightweight runtime status surface.
+// Reads the single runtime store; never touches the transport directly.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "../store/useApp";
-import { loadProfiles, getActiveProfileId, subscribeProfiles } from "./profiles-store";
+import { useRuntime } from "./store";
+import {
+  loadProfiles,
+  setActiveProfileId,
+  subscribeProfiles,
+} from "./profiles-store";
+import type { RuntimeConnectionState } from "./types";
 
-function resolveActiveName(): string {
-  const id = getActiveProfileId();
-  return loadProfiles().find((p) => p.id === id)?.name ?? "Built-in Pi";
-}
+const STATE_COLORS: Record<RuntimeConnectionState, string> = {
+  idle: "var(--text-faint)",
+  discovering: "var(--text-faint)",
+  connecting: "var(--warning)",
+  connected: "var(--success)",
+  reconnecting: "var(--accent)",
+  incompatible: "var(--danger)",
+  unavailable: "var(--danger)",
+  crashed: "var(--warning)",
+  disconnected: "var(--text-muted)",
+};
 
 export function RuntimeIndicator() {
   const setView = useApp((s) => s.setView);
-  const [name, setName] = useState<string>(resolveActiveName);
+  const state = useRuntime((s) => s.state);
+  const info = useRuntime((s) => s.info);
+  const selectProfile = useRuntime((s) => s.selectProfile);
 
-  useEffect(() => subscribeProfiles(() => setName(resolveActiveName())), []);
+  const [open, setOpen] = useState(false);
+  const [profiles, setProfiles] = useState(() => loadProfiles());
+  const [activeId, setActiveId] = useState(() => localStorage.getItem("lattice.runtime.active.v1"));
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => subscribeProfiles(() => {
+    setProfiles(loadProfiles());
+    setActiveId(localStorage.getItem("lattice.runtime.active.v1"));
+  }), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const switchTo = (id: string) => {
+    setActiveProfileId(id);
+    setActiveId(id);
+    setOpen(false);
+    void selectProfile(id);
+  };
+
+  const name = info?.name ?? "No runtime";
 
   return (
-    <button
-      className="runtime-indicator"
-      data-tooltip="Runtime"
-      onClick={() => setView("settings")}
-    >
-      <span className="status-dot success" />
-      <span className="runtime-indicator-name">{name}</span>
-    </button>
+    <div className="runtime-indicator-wrap" ref={ref} style={{ position: "relative", flex: 1, minWidth: 0 }}>
+      <button
+        className="runtime-indicator"
+        data-tooltip="Runtime"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="status-dot" style={{ background: STATE_COLORS[state] }} />
+        <span className="runtime-indicator-name">{name}</span>
+      </button>
+
+      {open && (
+        <div className="popover runtime-switcher" style={{ bottom: "calc(100% + 6px)", left: 0, minWidth: 220 }}>
+          <div className="popover-header">Runtime</div>
+          <div className="popover-list">
+            {profiles.map((p) => (
+              <button
+                key={p.id}
+                className="popover-item"
+                onClick={() => switchTo(p.id)}
+              >
+                <span className="status-dot" style={{ background: activeId === p.id ? "var(--success)" : "var(--text-faint)" }} />
+                <span style={{ flex: 1, textAlign: "left" }}>{p.name}</span>
+                <span className="sub">
+                  {p.provider.type === "remote" ? "Remote" : p.provider.type === "installed" ? "Installed" : "Built-in"}
+                </span>
+              </button>
+            ))}
+          </div>
+          <button className="popover-item" onClick={() => { setOpen(false); setView("settings"); }}>
+            ⚙ Manage runtimes
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -3,13 +3,8 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import type { LatticeApi } from "../../shared/api";
 import { useApp } from "./store/useApp";
-import { createLatticeStub } from "./lattice-stub";
-import { RuntimeManager } from "./runtime/manager";
-import {
-  loadProfiles,
-  getActiveProfileId,
-  migrateLegacyRuntimeConfig,
-} from "./runtime/profiles-store";
+import { createDisconnectedApi } from "./runtime/disconnected-api";
+import { useRuntime } from "./runtime/store";
 import { discoverInstalledPi, setInstalledExecutable } from "./runtime/discovery-client";
 import "./styles/tokens.css";
 
@@ -21,37 +16,15 @@ declare global {
   }
 }
 
-function isMobileWebView(): boolean {
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-}
+if (!window.lattice) {
+  const api = useRuntime.getState().boot();
+  window.lattice = api ?? createDisconnectedApi();
 
-const runtimeManager = new RuntimeManager();
-
-function selectAdapter(): LatticeApi {
-  const tauri = (window as unknown as { __TAURI__?: unknown }).__TAURI__;
-  if (!tauri) return createLatticeStub();
-
-  // One-time migration from the old single-config model.
-  migrateLegacyRuntimeConfig();
-
-  const profiles = loadProfiles();
-  const activeId = getActiveProfileId();
-  const active = profiles.find((p) => p.id === activeId);
-
-  // Mobile cannot spawn a local Pi; it needs a remote profile.
-  if (isMobileWebView()) {
-    const remote = active?.provider?.type === "remote" ? active : undefined;
-    return remote ? runtimeManager.connect(remote, null).api : createLatticeStub();
-  }
-
-  // Fallback order: explicit profile → compatible installed Pi → bundled Pi.
-  const resolved = runtimeManager.connect(active, null);
-
-  // Installed profile: point the Rust core at the installed binary (discover if
-  // "auto") before the lazily-spawned sidecar starts. Fire-and-forget; the
-  // first Pi command triggers the actual spawn.
-  if (resolved.info.provider === "installed") {
-    const provider = active?.provider;
+  // Installed profile: point Rust at the installed binary (discover if "auto")
+  // before the lazily-spawned sidecar starts.
+  const info = useRuntime.getState().info;
+  if (info?.provider === "installed") {
+    const provider = useRuntime.getState().profile?.provider;
     void (async () => {
       if (provider?.type === "installed" && provider.executable && provider.executable !== "auto") {
         await setInstalledExecutable(provider.executable);
@@ -61,12 +34,6 @@ function selectAdapter(): LatticeApi {
       }
     })();
   }
-
-  return resolved.api;
-}
-
-if (!window.lattice) {
-  window.lattice = selectAdapter();
 }
 
 // Expose the store so the visual-regression driver can reach UI state.

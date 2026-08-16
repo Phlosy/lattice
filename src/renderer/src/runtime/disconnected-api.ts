@@ -1,12 +1,12 @@
-// Minimal window.lattice stub so the React UI can render inside the Tauri
-// WebView before the real Tauri invoke bridge is wired (sub-step 2). Every
-// method returns a benign default; events return no-op unsubscribers.
+// Disconnected LatticeApi — used when no runtime is available (browser without
+// Tauri, or mobile without a configured remote). Every method is a benign no-op
+// or empty default; events return no-op unsubscribers.
 
-import type { LatticeApi } from "../../shared/api";
+import type { LatticeApi } from "../../../shared/api";
 
 const noop = () => () => {};
 
-export function createLatticeStub(): LatticeApi {
+export function createDisconnectedApi(): LatticeApi {
   const defaultSettings = {
     theme: "dark" as const,
     locale: "en" as const,
@@ -16,7 +16,7 @@ export function createLatticeStub(): LatticeApi {
     autoApproveReadOnly: true,
   };
   return {
-    appInfo: () => Promise.resolve({ name: "Lattice", version: "1.0.0", platform: "tauri" }),
+    appInfo: () => Promise.resolve({ name: "Lattice", version: "1.0.0", platform: "browser" }),
     openProject: () => Promise.resolve(null),
     getProjects: () => Promise.resolve([]),
     removeProject: () => Promise.resolve(true),

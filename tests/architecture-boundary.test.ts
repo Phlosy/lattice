@@ -25,11 +25,10 @@ function relative(path: string): string {
 
 describe("runtime architecture boundary", () => {
   it("UI code never imports adapters or Tauri internals directly", () => {
-    const forbidden = ["lattice-tauri", "lattice-remote", "lattice-stub", "__TAURI__"];
+    const forbidden = ["lattice-tauri", "lattice-remote", "__TAURI__"];
     const boundaryFiles = new Set([
       "lattice-tauri.ts",
       "lattice-remote.ts",
-      "lattice-stub.ts",
       "main.tsx",
     ]);
 
