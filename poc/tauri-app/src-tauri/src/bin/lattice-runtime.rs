@@ -9,7 +9,7 @@
 //!   host → client:  { "type": "event", "event": "pi-event", "payload": {...} }
 
 use std::collections::{BTreeSet, HashMap};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -19,6 +19,9 @@ use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
 use tokio_tungstenite::tungstenite::Message;
+
+#[cfg(desktop)]
+use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 
 const PI_ENTRY: &str = "node_modules/@earendil-works/pi-coding-agent/dist/cli.js";
 
@@ -58,12 +61,23 @@ fn bundled_pi() -> Option<PathBuf> {
 
 type PendingRequests = Arc<Mutex<HashMap<String, mpsc::Sender<Result<Value, String>>>>>;
 
+#[cfg(desktop)]
+struct HostPtySession {
+    writer: Box<dyn Write + Send>,
+    master: Box<dyn portable_pty::MasterPty + Send>,
+    child: Box<dyn portable_pty::Child + Send + Sync>,
+}
+
 struct Runtime {
     stdin: Mutex<ChildStdin>,
     _child: Mutex<Option<Child>>,
     pending: PendingRequests,
     counter: AtomicU32,
     events: broadcast::Sender<(String, Value)>,
+    #[cfg(desktop)]
+    pty: Arc<Mutex<HashMap<String, HostPtySession>>>,
+    #[cfg(desktop)]
+    pty_counter: AtomicU32,
 }
 
 type SpawnedPi = (ChildStdin, Child, broadcast::Sender<(String, Value)>);
@@ -231,7 +245,7 @@ fn method_to_local(method: &str, params: &Value) -> Option<Result<Value, String>
             "filesystem": true,
             "git": true,
             "shell": true,
-            "pty": false,
+            "pty": cfg!(desktop),
             "skills": true,
             "extensions": false,
             "subagents": true,
@@ -285,6 +299,159 @@ fn request_rpc(runtime: &Arc<Runtime>, cmd: &Value) -> Result<Value, String> {
         .map_err(|e| format!("timeout: {e}"))?
 }
 
+#[cfg(desktop)]
+fn host_default_shell() -> String {
+    #[cfg(windows)]
+    {
+        std::env::var("COMSPEC").unwrap_or_else(|_| "powershell.exe".to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
+    }
+}
+
+#[cfg(desktop)]
+fn host_pty_spawn(runtime: &Arc<Runtime>, cwd: String) -> Result<String, String> {
+    let id = format!("pty-{}", runtime.pty_counter.fetch_add(1, Ordering::SeqCst));
+    let pty_system = native_pty_system();
+    let pair = pty_system
+        .openpty(PtySize {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| e.to_string())?;
+    let mut cmd = CommandBuilder::new(host_default_shell());
+    if !cwd.is_empty() {
+        cmd.cwd(cwd);
+    }
+    cmd.env("TERM", "xterm-256color");
+    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+    let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+    let session = HostPtySession {
+        writer,
+        master: pair.master,
+        child,
+    };
+    runtime
+        .pty
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(id.clone(), session);
+
+    let events = runtime.events.clone();
+    let sessions = Arc::clone(&runtime.pty);
+    let id_clone = id.clone();
+    std::thread::spawn(move || {
+        let mut buf = [0u8; 8192];
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => {
+                    let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                    let _ = events.send((
+                        "terminal.data".to_string(),
+                        json!({ "id": id_clone, "data": data }),
+                    ));
+                }
+                Err(_) => break,
+            }
+        }
+        let exit_code = sessions
+            .lock()
+            .ok()
+            .and_then(|mut sessions| sessions.remove(&id_clone))
+            .and_then(|mut session| session.child.wait().ok())
+            .map(|status| status.exit_code() as i64)
+            .unwrap_or(-1);
+        let _ = events.send((
+            "terminal.exit".to_string(),
+            json!({ "id": id_clone, "exitCode": exit_code }),
+        ));
+    });
+    Ok(id)
+}
+
+#[cfg(desktop)]
+fn host_pty_write(runtime: &Arc<Runtime>, id: &str, data: &str) -> Result<(), String> {
+    let mut sessions = runtime.pty.lock().map_err(|e| e.to_string())?;
+    let session = sessions
+        .get_mut(id)
+        .ok_or_else(|| format!("terminal not found: {id}"))?;
+    session
+        .writer
+        .write_all(data.as_bytes())
+        .map_err(|e| e.to_string())?;
+    session.writer.flush().map_err(|e| e.to_string())
+}
+
+#[cfg(desktop)]
+fn host_pty_resize(runtime: &Arc<Runtime>, id: &str, cols: u16, rows: u16) -> Result<(), String> {
+    let sessions = runtime.pty.lock().map_err(|e| e.to_string())?;
+    let session = sessions
+        .get(id)
+        .ok_or_else(|| format!("terminal not found: {id}"))?;
+    session
+        .master
+        .resize(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(desktop)]
+fn host_pty_kill(runtime: &Arc<Runtime>, id: &str) -> Result<(), String> {
+    let mut sessions = runtime.pty.lock().map_err(|e| e.to_string())?;
+    let session = sessions
+        .get_mut(id)
+        .ok_or_else(|| format!("terminal not found: {id}"))?;
+    session.child.kill().map_err(|e| e.to_string())
+}
+
+#[cfg(desktop)]
+fn method_to_pty(
+    runtime: &Arc<Runtime>,
+    method: &str,
+    params: &Value,
+) -> Option<Result<Value, String>> {
+    let p = params.as_object().cloned().unwrap_or_default();
+    let get_s = |k: &str| p.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    match method {
+        "terminal.create" => {
+            let cwd = get_s("cwd");
+            Some(
+                host_pty_spawn(runtime, cwd.clone())
+                    .map(|id| json!({ "id": id, "cwd": cwd, "title": "Terminal" })),
+            )
+        }
+        "terminal.input" => {
+            Some(host_pty_write(runtime, &get_s("id"), &get_s("data")).map(|_| json!(true)))
+        }
+        "terminal.resize" => {
+            let cols = p.get("cols").and_then(|v| v.as_u64()).unwrap_or(80) as u16;
+            let rows = p.get("rows").and_then(|v| v.as_u64()).unwrap_or(24) as u16;
+            Some(host_pty_resize(runtime, &get_s("id"), cols, rows).map(|_| json!(true)))
+        }
+        "terminal.kill" => Some(host_pty_kill(runtime, &get_s("id")).map(|_| json!(true))),
+        _ => None,
+    }
+}
+
+#[cfg(not(desktop))]
+fn method_to_pty(
+    _runtime: &Arc<Runtime>,
+    _method: &str,
+    _params: &Value,
+) -> Option<Result<Value, String>> {
+    None
+}
+
 async fn handle_connection(
     runtime: Arc<Runtime>,
     stream: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
@@ -325,6 +492,8 @@ async fn handle_connection(
                             }
                         } else if method == "model.providers" {
                             providers_from_models(&runtime)
+                        } else if let Some(result) = method_to_pty(&runtime, method, &params) {
+                            result
                         } else if let Some(result) = method_to_local(method, &params) {
                             result
                         } else {
@@ -375,6 +544,10 @@ async fn main() {
         pending,
         counter: AtomicU32::new(0),
         events,
+        #[cfg(desktop)]
+        pty: Arc::new(Mutex::new(HashMap::new())),
+        #[cfg(desktop)]
+        pty_counter: AtomicU32::new(0),
     });
 
     let listener = tokio::net::TcpListener::bind(&addr)
