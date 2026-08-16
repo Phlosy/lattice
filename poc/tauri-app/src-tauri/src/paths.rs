@@ -27,7 +27,9 @@ pub fn pi_agent_dir() -> PathBuf {
 }
 
 pub fn session_dir() -> PathBuf {
-    home_dir().join(".lattice").join("sessions")
+    // Pi owns agent session state. Point at Pi's canonical store so the `pi`
+    // CLI and Lattice share the same sessions.
+    pi_agent_dir().join("sessions")
 }
 
 pub fn prepare_session_dir() -> Result<PathBuf, String> {
@@ -35,12 +37,15 @@ pub fn prepare_session_dir() -> Result<PathBuf, String> {
     std::fs::create_dir_all(&destination)
         .map_err(|error| format!("create session directory: {error}"))?;
 
-    // v1.1.0 used a temporary directory. Preserve any surviving history once,
-    // rather than silently dropping it when moving to durable storage. A marker
-    // prevents a subsequently deleted migrated session from being resurrected.
-    let migration_marker = destination.join(".temp-session-migration-v1");
+    // Migrate once from the earlier locations (v1.1.0 temp dir + the former
+    // ~/.lattice/sessions) into Pi's canonical store. A marker prevents a
+    // subsequently deleted migrated session from being resurrected.
+    let migration_marker = destination.join(".session-migration-v2");
     if !migration_marker.exists() {
-        let mut legacy_dirs = vec![std::env::temp_dir().join("pi-tauri-sessions")];
+        let mut legacy_dirs = vec![
+            std::env::temp_dir().join("pi-tauri-sessions"),
+            home_dir().join(".lattice").join("sessions"),
+        ];
         #[cfg(unix)]
         legacy_dirs.push(PathBuf::from("/tmp/pi-tauri-sessions"));
         legacy_dirs.sort();
@@ -80,5 +85,10 @@ mod tests {
         assert!(home_dir().is_absolute());
         assert!(pi_agent_dir().is_absolute());
         assert!(session_dir().is_absolute());
+    }
+
+    #[test]
+    fn session_dir_lives_under_pi_agent_home() {
+        assert!(session_dir().starts_with(pi_agent_dir()));
     }
 }
