@@ -85,6 +85,52 @@ fn dev_bundled_pi() -> Option<PathBuf> {
     p.exists().then_some(p)
 }
 
+/// Candidate locations for an installed `pi` binary (PATH + common paths).
+fn installed_pi_candidates() -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    if let Ok(path) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path) {
+            out.push(dir.join(pi_bin_name()));
+        }
+    }
+    out.push(PathBuf::from("/opt/homebrew/bin").join(pi_bin_name()));
+    out.push(PathBuf::from("/usr/local/bin").join(pi_bin_name()));
+    if let Ok(home) = std::env::var("HOME") {
+        out.push(
+            PathBuf::from(home)
+                .join(".local")
+                .join("bin")
+                .join(pi_bin_name()),
+        );
+    }
+    out.push(PathBuf::from("/usr/bin").join(pi_bin_name()));
+    out
+}
+
+/// Detect an installed Pi on this machine (InstalledPiProvider discovery).
+#[tauri::command]
+pub fn runtime_detect() -> serde_json::Value {
+    for candidate in installed_pi_candidates() {
+        if !candidate.is_file() {
+            continue;
+        }
+        let version = Command::new(&candidate)
+            .arg("--version")
+            .output()
+            .ok()
+            .and_then(|out| String::from_utf8(out.stdout).ok())
+            .map(|s| s.trim().to_string());
+        return serde_json::json!({
+            "found": true,
+            "executablePath": candidate,
+            "version": version,
+            "compatibility": "unknown",
+            "piHome": crate::paths::home_dir().join(".pi"),
+        });
+    }
+    serde_json::json!({ "found": false })
+}
+
 /// Shared sidecar state. Managed as `Arc<PiShared>` so the stdout reader thread
 /// can detect crashes and trigger restarts.
 pub struct PiShared {
@@ -672,5 +718,18 @@ mod tests {
         let widget = serde_json::json!({ "type": "extension_ui_request", "method": "setWidget" });
         assert!(is_permission_request(&confirm));
         assert!(!is_permission_request(&widget));
+    }
+
+    #[test]
+    fn installed_candidates_include_common_paths_and_use_pi_bin_name() {
+        let candidates = installed_pi_candidates();
+        assert!(!candidates.is_empty());
+        // Every candidate targets the platform pi binary name.
+        assert!(candidates.iter().all(|c| c.ends_with(pi_bin_name())));
+        // Common install locations are always probed.
+        assert!(candidates
+            .iter()
+            .any(|c| c.starts_with("/opt/homebrew/bin")));
+        assert!(candidates.iter().any(|c| c.starts_with("/usr/bin")));
     }
 }

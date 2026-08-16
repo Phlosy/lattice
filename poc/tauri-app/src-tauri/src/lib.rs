@@ -35,6 +35,7 @@ pub fn run() {
             pi::pi_crash,
             pi::pi_stop,
             pi::pi_status,
+            pi::runtime_detect,
             workspace::open_project,
             workspace::list_files,
             workspace::read_file,
