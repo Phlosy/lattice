@@ -42,6 +42,7 @@ describe("createLatticeTauri", () => {
       "gitStatus", "gitDiff", "gitCommit", "gitBranches", "gitCheckout",
       "gitListWorktrees", "gitCreateWorktree", "extList", "extInstall",
       "extUninstall", "extToggle", "extSearch", "getSettings", "setSettings",
+      "getCapabilities",
       "onSessionEvent", "onSessionState", "onSessionCreated", "onSessionDeleted",
       "onPermissionRequest", "onTerminalData", "onTerminalExit", "onGitChanged",
       "onModelsChanged",

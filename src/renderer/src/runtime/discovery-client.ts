@@ -1,7 +1,7 @@
 // Installed Pi discovery client — calls the Rust `runtime_detect` command.
 // Lives in the runtime layer so the UI never probes the filesystem itself.
 
-import type { DiscoveryResult, RuntimeCapabilities } from "./types";
+import type { DiscoveryResult } from "./types";
 
 interface TauriWindow extends Window {
   __TAURI__?: {
@@ -37,11 +37,4 @@ export async function setInstalledExecutable(path: string | null): Promise<void>
   const tauri = (window as TauriWindow).__TAURI__;
   if (!tauri) return;
   await tauri.core.invoke("pi_set_executable", { path: path ?? "" });
-}
-
-/** Query the local runtime's actual capabilities (reported by the Desktop Core). */
-export async function getRuntimeCapabilities(): Promise<RuntimeCapabilities | null> {
-  const tauri = (window as TauriWindow).__TAURI__;
-  if (!tauri) return null;
-  return (await tauri.core.invoke("runtime_capabilities")) as RuntimeCapabilities;
 }

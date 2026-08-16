@@ -11,6 +11,7 @@ import {
   subscribeProfiles,
 } from "../runtime/profiles-store";
 import type { RuntimeProfile } from "../runtime/types";
+import { RuntimeDiagnostics } from "../runtime/RuntimeDiagnostics";
 import { workbenchCommands } from "../workbench/commands";
 
 type Section = "appearance" | "model" | "agent" | "runtime" | "about";
@@ -285,6 +286,8 @@ function RuntimeSection() {
           </button>
         </div>
       </div>
+
+      <RuntimeDiagnostics />
     </SectionCard>
   );
 }

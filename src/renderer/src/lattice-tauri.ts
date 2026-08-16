@@ -263,6 +263,7 @@ export function createLatticeTauri(): LatticeApi {
 
     getSettings: () => invoke("get_settings") as never,
     setSettings: (patch) => invoke("set_settings", { patch }) as never,
+    getCapabilities: () => invoke("runtime_capabilities") as Promise<Record<string, boolean>>,
 
     onSessionEvent: (handler) =>
       listen("pi-event", (payload) => {

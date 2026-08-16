@@ -162,6 +162,7 @@ export function createLatticeRemote(opts: RemoteRuntimeOptions): LatticeApi {
     extSearch: (registry) => request("ext.search", { registry }),
     getSettings: () => request("settings.get"),
     setSettings: (patch) => request("settings.set", { patch }),
+    getCapabilities: () => request("runtime.capabilities"),
     onSessionEvent,
     onSessionState,
     onSessionCreated,

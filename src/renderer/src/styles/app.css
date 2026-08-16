@@ -414,6 +414,41 @@ body[data-platform="darwin"] .sidebar-header {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.runtime-diagnostics {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+}
+.runtime-diagnostics .diag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.runtime-diagnostics .diag-row span {
+  color: var(--text-muted);
+}
+.runtime-diagnostics .diag-row b {
+  color: var(--text-primary);
+  font-weight: var(--fw-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+.runtime-diagnostics .diag-capabilities {
+  margin-top: var(--sp-2);
+}
+.runtime-diagnostics .diag-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
 
 /* Collapsed sidebar (icon-only, Codex-style) */
 .sidebar.collapsed {

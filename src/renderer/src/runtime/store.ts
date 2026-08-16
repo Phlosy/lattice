@@ -12,7 +12,6 @@ import type {
 } from "./types";
 import { NO_CAPABILITIES, mergeCapabilities } from "./capabilities";
 import { RuntimeManager } from "./manager";
-import { getRuntimeCapabilities } from "./discovery-client";
 import {
   loadProfiles,
   getActiveProfileId,
@@ -108,12 +107,11 @@ export const useRuntime = create<RuntimeStore>((set, get) => {
     },
 
     async refreshCapabilities() {
-      const info = get().info;
-      // Remote capability negotiation is deferred (host reports `runtime.capabilities`).
-      if (!info || info.location === "remote") return;
-      const caps = await getRuntimeCapabilities();
+      // Both local and remote adapters expose getCapabilities() (optional on
+      // LatticeApi); the store merges the real report over the static baseline.
+      const caps = await get().api?.getCapabilities?.();
       if (caps) {
-        manager.updateCapabilities(mergeCapabilities(get().capabilities, caps));
+        manager.updateCapabilities(mergeCapabilities(get().capabilities, caps as unknown as RuntimeCapabilities));
         sync();
       }
     },

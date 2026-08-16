@@ -81,6 +81,9 @@ export interface LatticeApi {
   getSettings(): Promise<AppSettings>;
   setSettings(patch: Partial<AppSettings>): Promise<AppSettings>;
 
+  /** Report the runtime's actual capabilities (transport-dependent). */
+  getCapabilities?(): Promise<Record<string, boolean>>;
+
   onSessionEvent(handler: (payload: SessionEventPayload) => void): () => void;
   onSessionState(handler: (state: SessionState) => void): () => void;
   onSessionCreated(handler: (payload: { sessionId: string; projectId: string }) => void): () => void;
