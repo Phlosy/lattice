@@ -389,6 +389,31 @@ body[data-platform="darwin"] .sidebar-header {
   padding: var(--sp-3) var(--sp-4);
   border-top: 1px solid var(--border-subtle);
 }
+.runtime-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-12);
+  cursor: pointer;
+  text-align: left;
+}
+.runtime-indicator:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+.runtime-indicator-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Collapsed sidebar (icon-only, Codex-style) */
 .sidebar.collapsed {

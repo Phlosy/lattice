@@ -12,6 +12,7 @@ import {
 import { useApp } from "../store/useApp";
 import { useT } from "../i18n";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { RuntimeIndicator } from "../runtime/RuntimeIndicator";
 
 interface MenuState {
   x: number;
@@ -233,6 +234,7 @@ export function Sidebar() {
       )}
 
       <div className="sidebar-footer">
+        <RuntimeIndicator />
         <button className="icon-btn" data-tooltip={t("sidebar.extensions")} onClick={() => setView("extensions")}>
           <Blocks size={16} />
         </button>
