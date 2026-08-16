@@ -22,6 +22,30 @@ function findTabByComponent(model: Model, component: string): TabNode | undefine
   return found;
 }
 
+function findTerminalTab(model: Model): TabNode | undefined {
+  let found: TabNode | undefined;
+  model.visitNodes((node) => {
+    if (!found && node.getType() === "tab") {
+      const component = (node as TabNode).getComponent() ?? "";
+      if (component.startsWith("terminal:")) found = node as TabNode;
+    }
+  });
+  return found;
+}
+
+function tabsetHasTerminal(model: Model, tabsetId: string): boolean {
+  let has = false;
+  model.visitNodes((node) => {
+    if (has) return;
+    if (node.getType() === "tab") {
+      const tab = node as TabNode;
+      const component = tab.getComponent() ?? "";
+      if (component.startsWith("terminal:") && tab.getParent()?.getId() === tabsetId) has = true;
+    }
+  });
+  return has;
+}
+
 function selectTab(model: Model, tab: TabNode): void {
   model.doAction(Actions.selectTab(tab.getId()));
 }
@@ -61,9 +85,11 @@ export const workbenchCommands = {
   },
 
   /**
-   * Open a specific terminal (one PTY per tab) docked to the RIGHT of the
-   * active tabset, so terminals stack side-by-side on the right. Free drag
-   * still works afterwards for arbitrary row/column arrangement.
+   * Open a specific terminal (one PTY per tab).
+   *   • first terminal  → docks a new tabset to the RIGHT of the active tabset
+   *   • later terminals → append to the existing terminal tabset (so a single
+   *     tab bar switches between them)
+   * A tab can still be dragged out into its own split layout afterwards.
    */
   openTerminal(terminalId: string): void {
     if (!boundModel) return;
@@ -74,14 +100,34 @@ export const workbenchCommands = {
       selectTab(boundModel, existing);
       return;
     }
-    const tabset = boundModel.getActiveTabset();
-    const targetId = tabset?.getId() ?? boundModel.getRootRow()?.getId();
+
+    const activeTabset = boundModel.getActiveTabset();
+    let targetId: string | undefined;
+    let location: DockLocation;
+
+    if (activeTabset && tabsetHasTerminal(boundModel, activeTabset.getId())) {
+      // Stack with the terminals already in the active tabset.
+      targetId = activeTabset.getId();
+      location = DockLocation.CENTER;
+    } else {
+      const terminalTab = findTerminalTab(boundModel);
+      if (terminalTab?.getParent()) {
+        // Append to the existing terminal tabset.
+        targetId = terminalTab.getParent()?.getId();
+        location = DockLocation.CENTER;
+      } else {
+        // No terminal yet → dock a new tabset on the right.
+        targetId = activeTabset?.getId() ?? boundModel.getRootRow()?.getId();
+        location = DockLocation.RIGHT;
+      }
+    }
+
     if (!targetId) return;
     boundModel.doAction(
       Actions.addNode(
         { type: "tab", id: nodeId, name: "Terminal", component, enableClose: true },
         targetId,
-        DockLocation.RIGHT,
+        location,
         -1,
         true,
       ),
