@@ -74,3 +74,67 @@ export function connectionStatus(state: RuntimeConnectionState): string {
       return "disconnected";
   }
 }
+
+import type { DiscoveryResult, RuntimeCapabilities, RuntimeInfo, RuntimeProfile } from "./types";
+import { createProvider, type ResolvedRuntime } from "./provider";
+import { resolveProfile } from "./profiles";
+import { hasCapability } from "./capabilities";
+
+/** The single owner of runtime connection state and provider selection. */
+export class RuntimeManager {
+  private state: RuntimeConnectionState = "idle";
+  private profile: RuntimeProfile | null = null;
+  private runtime: ResolvedRuntime | null = null;
+  private readonly listeners = new Set<(state: RuntimeConnectionState) => void>();
+
+  getState(): RuntimeConnectionState {
+    return this.state;
+  }
+
+  getProfile(): RuntimeProfile | null {
+    return this.profile;
+  }
+
+  getInfo(): RuntimeInfo | null {
+    return this.runtime?.info ?? null;
+  }
+
+  getCapabilities(): RuntimeCapabilities | null {
+    return this.runtime?.capabilities ?? null;
+  }
+
+  /** The active LatticeApi (operations surface), or null when disconnected. */
+  getApi() {
+    return this.runtime?.api ?? null;
+  }
+
+  hasCapability(key: keyof RuntimeCapabilities): boolean {
+    const caps = this.runtime?.capabilities;
+    return caps ? hasCapability(caps, key) : false;
+  }
+
+  subscribe(listener: (state: RuntimeConnectionState) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  /** Resolve + connect, applying the fallback order (explicit → installed → bundled). */
+  connect(explicit: RuntimeProfile | undefined, discovery: DiscoveryResult | null): ResolvedRuntime {
+    const profile = resolveProfile(explicit, discovery);
+    this.profile = profile;
+    this.setState("connecting");
+    this.runtime = createProvider(profile);
+    this.setState("connected");
+    return this.runtime;
+  }
+
+  disconnect(): void {
+    this.runtime = null;
+    this.setState("disconnected");
+  }
+
+  private setState(next: RuntimeConnectionState): void {
+    this.state = next;
+    for (const listener of this.listeners) listener(next);
+  }
+}

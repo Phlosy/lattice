@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { useApp } from "../store/useApp";
 import { useT } from "../i18n";
 import {
-  loadRuntimeConfig,
-  saveRuntimeConfigField,
-  subscribeRuntimeConfig,
-  type RuntimeConfig,
-  type RuntimeMode,
-} from "../lib/runtime-config";
-import { createLatticeRemote } from "../lattice-remote";
+  loadProfiles,
+  addProfile,
+  removeProfile,
+  getActiveProfileId,
+  setActiveProfileId,
+  subscribeProfiles,
+} from "../runtime/profiles-store";
+import type { RuntimeProfile } from "../runtime/types";
 import { workbenchCommands } from "../workbench/commands";
 
 type Section = "appearance" | "model" | "agent" | "runtime" | "about";
@@ -197,134 +199,93 @@ function SectionCard({ title, children }: { title: string; children: React.React
 
 function RuntimeSection() {
   const t = useT();
-  const [config, setConfig] = useState<RuntimeConfig>(() => loadRuntimeConfig());
-  const [url, setUrl] = useState(config.remoteUrl);
-  const [token, setToken] = useState(config.remoteToken);
-  const [savedField, setSavedField] = useState<"url" | "token" | null>(null);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<"ok" | "fail" | null>(null);
+  const [profiles, setProfiles] = useState<RuntimeProfile[]>(() => loadProfiles());
+  const [activeId, setActiveId] = useState<string | null>(() => getActiveProfileId());
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [token, setToken] = useState("");
 
   useEffect(
     () =>
-      subscribeRuntimeConfig((next) => {
-        setConfig(next);
-        setUrl(next.remoteUrl);
-        setToken(next.remoteToken);
+      subscribeProfiles(() => {
+        setProfiles(loadProfiles());
+        setActiveId(getActiveProfileId());
       }),
     [],
   );
 
-  const saveField = (key: "remoteUrl" | "remoteToken", value: string) => {
-    saveRuntimeConfigField(key, value);
-    setSavedField(key === "remoteUrl" ? "url" : "token");
+  const activate = (id: string) => {
+    setActiveProfileId(id);
+    window.location.reload();
   };
 
-  const testConnection = async () => {
-    if (!url.trim()) return;
-    setTesting(true);
-    setTestResult(null);
-    const remote = createLatticeRemote({
-      url: url.trim(),
-      token: token.trim() || undefined,
+  const addRemote = () => {
+    if (!name.trim() || !url.trim()) return;
+    addProfile({
+      id: `remote-${Date.now()}`,
+      name: name.trim(),
+      provider: { type: "remote", url: url.trim(), token: token.trim() || undefined },
     });
-    try {
-      await Promise.race([
-        remote.getProviders(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000)),
-      ]);
-      setTestResult("ok");
-    } catch {
-      setTestResult("fail");
-    } finally {
-      setTesting(false);
-    }
+    setName("");
+    setUrl("");
+    setToken("");
   };
 
   return (
     <SectionCard title={t("settings.runtime")}>
-      <div className="field">
-        <label>{t("settings.runtimeMode")}</label>
-        <select
-          value={config.mode}
-          onChange={(e) => saveRuntimeConfigField("mode", e.target.value as RuntimeMode)}
-        >
-          <option value="local">{t("settings.runtimeLocal")}</option>
-          <option value="remote">{t("settings.runtimeRemote")}</option>
-        </select>
+      <p className="desc">{t("settings.runtimeRemoteNote")}</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {profiles.map((p) => {
+          const kind =
+            p.provider.type === "remote" ? t("settings.runtimeRemote") : t("settings.runtimeLocal");
+          return (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+              <label className="checkbox-label" style={{ flex: 1, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="runtime-profile"
+                  checked={activeId === p.id}
+                  onChange={() => activate(p.id)}
+                />
+                <span style={{ fontWeight: activeId === p.id ? 600 : 400 }}>{p.name}</span>
+                <span className="hint"> · {kind}</span>
+                {p.provider.type === "remote" && (
+                  <span className="hint" style={{ marginLeft: 6 }}>
+                    {(p.provider as { url?: string }).url}
+                  </span>
+                )}
+              </label>
+              {p.provider.type === "remote" && (
+                <button
+                  className="icon-btn"
+                  data-tooltip={t("sidebar.delete")}
+                  onClick={() => removeProfile(p.id)}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
-      <p className="desc">
-        {config.mode === "remote"
-          ? t("settings.runtimeRemoteNote")
-          : t("settings.runtimeLocalNote")}
-      </p>
 
-      {config.mode === "remote" && (
-        <>
-          <div className="field">
-            <label>{t("settings.runtimeUrl")}</label>
-            <input
-              value={url}
-              placeholder="wss://host:8787"
-              onChange={(e) => setUrl(e.target.value)}
-            />
-            <span className="hint">{t("settings.runtimeUrlHint")}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-              <button className="btn btn-sm" onClick={() => saveField("remoteUrl", url)}>
-                {t("settings.save")}
-              </button>
-              {savedField === "url" && <span className="hint">{t("settings.runtimeSaved")}</span>}
-            </div>
-          </div>
-
-          <div className="field">
-            <label>{t("settings.runtimeToken")}</label>
-            <input
-              type="password"
-              value={token}
-              placeholder="token"
-              onChange={(e) => setToken(e.target.value)}
-            />
-            <span className="hint">{t("settings.runtimeTokenHint")}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-              <button className="btn btn-sm" onClick={() => saveField("remoteToken", token)}>
-                {t("settings.save")}
-              </button>
-              {savedField === "token" && <span className="hint">{t("settings.runtimeSaved")}</span>}
-            </div>
-          </div>
-
-          <div className="field">
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button
-                className="btn btn-sm"
-                disabled={testing || !url.trim()}
-                onClick={() => void testConnection()}
-              >
-                {testing ? t("settings.runtimeTesting") : t("settings.runtimeTest")}
-              </button>
-              {testResult === "ok" && (
-                <span className="hint" style={{ color: "var(--success, #3fb950)" }}>
-                  {t("settings.runtimeOk")}
-                </span>
-              )}
-              {testResult === "fail" && (
-                <span className="hint" style={{ color: "var(--danger, #f85149)" }}>
-                  {t("settings.runtimeFail")}
-                </span>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-
-      <div className="field">
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button className="btn btn-sm btn-primary" onClick={() => window.location.reload()}>
-            {t("settings.runtimeReconnect")}
+      <div className="field" style={{ marginTop: 12 }}>
+        <label>{t("settings.runtimeAdd")}</label>
+        <input value={name} placeholder={t("settings.runtimeName")} onChange={(e) => setName(e.target.value)} />
+        <input value={url} placeholder="wss://host:8787" onChange={(e) => setUrl(e.target.value)} />
+        <input
+          type="password"
+          value={token}
+          placeholder={t("settings.runtimeToken")}
+          onChange={(e) => setToken(e.target.value)}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <button className="btn btn-sm" disabled={!name.trim() || !url.trim()} onClick={addRemote}>
+            {t("settings.save")}
           </button>
-          <span className="hint">{t("settings.runtimeReconnectHint")}</span>
         </div>
       </div>
     </SectionCard>
   );
 }
+

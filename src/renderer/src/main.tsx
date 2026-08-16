@@ -4,9 +4,12 @@ import App from "./App";
 import type { LatticeApi } from "../../shared/api";
 import { useApp } from "./store/useApp";
 import { createLatticeStub } from "./lattice-stub";
-import { createLatticeTauri } from "./lattice-tauri";
-import { createLatticeRemote } from "./lattice-remote";
-import { loadRuntimeConfig } from "./lib/runtime-config";
+import { RuntimeManager } from "./runtime/manager";
+import {
+  loadProfiles,
+  getActiveProfileId,
+  migrateLegacyRuntimeConfig,
+} from "./runtime/profiles-store";
 import "./styles/tokens.css";
 
 // Type declaration for the preload-exposed API.
@@ -21,21 +24,27 @@ function isMobileWebView(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+const runtimeManager = new RuntimeManager();
+
 function selectAdapter(): LatticeApi {
   const tauri = (window as unknown as { __TAURI__?: unknown }).__TAURI__;
   if (!tauri) return createLatticeStub();
-  const config = loadRuntimeConfig();
-  // Remote mode: route all LatticeApi traffic over WebSocket to a Runtime Host,
-  // whether on desktop or mobile. A URL is required to select it.
-  if (config.mode === "remote" && config.remoteUrl) {
-    return createLatticeRemote({
-      url: config.remoteUrl,
-      token: config.remoteToken || undefined,
-    });
+
+  // One-time migration from the old single-config model.
+  migrateLegacyRuntimeConfig();
+
+  const profiles = loadProfiles();
+  const activeId = getActiveProfileId();
+  const active = profiles.find((p) => p.id === activeId);
+
+  // Mobile cannot spawn a local Pi; it needs a remote profile.
+  if (isMobileWebView()) {
+    const remote = active?.provider?.type === "remote" ? active : undefined;
+    return remote ? runtimeManager.connect(remote, null).api : createLatticeStub();
   }
-  // Local mode. Mobile cannot spawn a local Pi sidecar, so fall back to stub.
-  if (isMobileWebView()) return createLatticeStub();
-  return createLatticeTauri();
+
+  // Fallback order: explicit profile → compatible installed Pi → bundled Pi.
+  return runtimeManager.connect(active, null).api;
 }
 
 if (!window.lattice) {
