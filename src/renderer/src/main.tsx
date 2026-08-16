@@ -10,6 +10,7 @@ import {
   getActiveProfileId,
   migrateLegacyRuntimeConfig,
 } from "./runtime/profiles-store";
+import { discoverInstalledPi, setInstalledExecutable } from "./runtime/discovery-client";
 import "./styles/tokens.css";
 
 // Type declaration for the preload-exposed API.
@@ -44,7 +45,24 @@ function selectAdapter(): LatticeApi {
   }
 
   // Fallback order: explicit profile → compatible installed Pi → bundled Pi.
-  return runtimeManager.connect(active, null).api;
+  const resolved = runtimeManager.connect(active, null);
+
+  // Installed profile: point the Rust core at the installed binary (discover if
+  // "auto") before the lazily-spawned sidecar starts. Fire-and-forget; the
+  // first Pi command triggers the actual spawn.
+  if (resolved.info.provider === "installed") {
+    const provider = active?.provider;
+    void (async () => {
+      if (provider?.type === "installed" && provider.executable && provider.executable !== "auto") {
+        await setInstalledExecutable(provider.executable);
+      } else {
+        const found = await discoverInstalledPi();
+        if (found) await setInstalledExecutable(found.executablePath);
+      }
+    })();
+  }
+
+  return resolved.api;
 }
 
 if (!window.lattice) {
