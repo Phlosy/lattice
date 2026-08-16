@@ -136,6 +136,7 @@ pub fn runtime_detect() -> serde_json::Value {
 pub struct PiShared {
     child: Mutex<Option<Child>>,
     cwd: Mutex<Option<PathBuf>>,
+    executable: Mutex<Option<PathBuf>>,
     lifecycle: Mutex<()>,
     pending: Mutex<HashMap<String, mpsc::Sender<Result<serde_json::Value, String>>>>,
     counter: AtomicU32,
@@ -151,6 +152,7 @@ impl PiShared {
         PiShared {
             child: Mutex::new(None),
             cwd: Mutex::new(None),
+            executable: Mutex::new(None),
             lifecycle: Mutex::new(()),
             pending: Mutex::new(HashMap::new()),
             counter: AtomicU32::new(0),
@@ -279,24 +281,64 @@ fn spawn_pi(app: &tauri::AppHandle, shared: &Arc<PiShared>) -> Result<(), String
         })
         .filter(|p| p.exists());
 
-    let (mut cmd, extension) = if let Some(bin) = resource_bin.or_else(dev_bundled_pi) {
-        let dir = bin.parent().map(|d| d.to_path_buf()).unwrap_or_default();
-        let ext = dir.join("extensions").join("permission-gate.ts");
-        let mut c = Command::new(&bin);
-        c.current_dir(&working_dir);
-        (c, ext.to_string_lossy().to_string())
-    } else {
-        let mut c = Command::new("node");
-        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let root = manifest.join("../../..");
-        let extension = manifest
-            .parent()
-            .unwrap_or(manifest)
-            .join("extensions")
-            .join("permission-gate.ts");
-        c.arg(root.join(PI_ENTRY)).current_dir(&working_dir);
-        (c, extension.to_string_lossy().to_string())
-    };
+    // A user-selected installed Pi takes priority over the bundled binary.
+    let configured_bin = shared
+        .executable
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone()
+        .filter(|p| p.exists());
+
+    // The permission-gate extension always ships with Lattice (an installed
+    // Pi binary does not include it).
+    let bundled_extension = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|r| {
+            r.join("pi-sidecar")
+                .join(platform_dir())
+                .join("extensions")
+                .join("permission-gate.ts")
+        })
+        .filter(|p| p.exists())
+        .or_else(|| {
+            let dev = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("pi-sidecar")
+                .join(platform_dir())
+                .join("extensions")
+                .join("permission-gate.ts");
+            dev.exists().then_some(dev)
+        });
+
+    let (mut cmd, extension) =
+        if let Some(bin) = configured_bin.or(resource_bin).or_else(dev_bundled_pi) {
+            let ext = bundled_extension
+                .clone()
+                .or_else(|| {
+                    bin.parent()
+                        .map(|d| d.join("extensions").join("permission-gate.ts"))
+                })
+                .unwrap_or_else(|| {
+                    bin.parent()
+                        .unwrap_or(Path::new("."))
+                        .join("permission-gate.ts")
+                });
+            let mut c = Command::new(&bin);
+            c.current_dir(&working_dir);
+            (c, ext.to_string_lossy().to_string())
+        } else {
+            let mut c = Command::new("node");
+            let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+            let root = manifest.join("../../..");
+            let extension = manifest
+                .parent()
+                .unwrap_or(manifest)
+                .join("extensions")
+                .join("permission-gate.ts");
+            c.arg(root.join(PI_ENTRY)).current_dir(&working_dir);
+            (c, extension.to_string_lossy().to_string())
+        };
 
     apply_login_shell_credentials(&mut cmd);
     let session_dir = crate::paths::prepare_session_dir()?;
@@ -689,6 +731,26 @@ pub fn pi_status(shared: SharedState) -> Result<serde_json::Value, String> {
         "pid": pid,
         "restartCount": shared.restart_count.load(Ordering::SeqCst),
     }))
+}
+
+/// Select an installed Pi executable (empty path clears the override back to
+/// the bundled binary). Restarts the sidecar when running.
+#[tauri::command]
+pub fn pi_set_executable(
+    app: tauri::AppHandle,
+    shared: SharedState,
+    path: String,
+) -> Result<(), String> {
+    let resolved = if path.trim().is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(path.trim()))
+    };
+    *shared.executable.lock().map_err(|e| e.to_string())? = resolved;
+    if shared.get_state() != PiState::Stopped {
+        restart_pi(&app, &shared, None)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

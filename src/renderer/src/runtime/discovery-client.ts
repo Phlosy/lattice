@@ -31,3 +31,10 @@ export async function discoverInstalledPi(): Promise<DiscoveryResult | null> {
     piHome: raw.piHome,
   };
 }
+
+/** Point the Rust Desktop Core at a specific installed Pi (empty = bundled). */
+export async function setInstalledExecutable(path: string | null): Promise<void> {
+  const tauri = (window as TauriWindow).__TAURI__;
+  if (!tauri) return;
+  await tauri.core.invoke("pi_set_executable", { path: path ?? "" });
+}
